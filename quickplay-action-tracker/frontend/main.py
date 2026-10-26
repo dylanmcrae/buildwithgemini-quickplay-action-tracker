@@ -14,7 +14,7 @@ import os
 import uuid
 from typing import Any, Dict, List, Optional
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, UploadFile, File
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from google.cloud import firestore
@@ -240,55 +240,140 @@ async def add_attachment(item_id: str, req: Request):
 
 @app.post("/api/items/import")
 async def bulk_import(req: Request):
+    """Parses text, Docs/Sheets URL, or structured rows using Gemini into structured work items.
+    Can be run in 'preview' mode (returns extracted items without saving) or 'commit' mode.
+    """
+    from app.import_service import (
+        parse_work_items_with_gemini,
+        persist_imported_items,
+        fetch_text_from_google_url,
+    )
+
     body = await req.json()
     raw_text = body.get("raw_text", "")
+    url = body.get("url", "")
+    preview_only = body.get("preview_only", False)
     org_id = body.get("org_id", "customer-acme")
+    product_id = body.get("product_id") or "prod-acme-streaming"
     creator = body.get("creator", "importer@quickplay.com")
-    now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    pre_parsed_items = body.get("items")
 
-    lines = [line.strip() for line in raw_text.strip().split("\n") if line.strip()]
-    imported_count = 0
+    # Determine product name
+    product_name = ""
+    comp = COMPANIES_REGISTRY.get(org_id)
+    if comp:
+        for p in comp.get("products", []):
+            if p["product_id"] == product_id:
+                product_name = p["name"]
+                break
 
-    for i, line in enumerate(lines):
-        parts = [p.strip() for p in line.split(",") if p.strip()]
-        if not parts or parts[0].lower() in ["title", "item", "name"]:
-            continue
+    # If committing previously previewed items:
+    if pre_parsed_items and isinstance(pre_parsed_items, list):
+        saved = persist_imported_items(
+            items=pre_parsed_items,
+            org_id=org_id,
+            product_id=product_id,
+            product_name=product_name,
+            creator_email=creator,
+            db_client=db,
+            collection_name=COLLECTION_NAME,
+        )
+        return {"success": True, "imported_count": len(saved), "items": saved}
 
-        item_id = f"ACT-IMP-{uuid.uuid4().hex[:4].upper()}"
-        title = parts[0]
-        status = parts[1] if len(parts) > 1 else "ideation"
-        priority = parts[2] if len(parts) > 2 else "medium"
-        assignee = parts[3] if len(parts) > 3 else "unassigned"
+    # Fetch remote text if Google Doc / Sheet URL is provided
+    content_to_parse = raw_text
+    if url:
+        fetched = fetch_text_from_google_url(url)
+        content_to_parse = f"{fetched}\n\n{raw_text}".strip()
 
-        item = {
-            "item_id": item_id,
-            "org_id": org_id,
-            "title": title,
-            "description": f"Imported entry from batch upload",
-            "status": status,
-            "priority": priority,
-            "assignee": assignee,
-            "delivery_date": (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=14)).strftime("%Y-%m-%d"),
-            "created_at": now,
-            "closed_at": now if status == "closed" else None,
-            "space_id": "imported",
-            "nodes": [],
-            "attachments": [],
-            "history": [
-                {
-                    "timestamp": now,
-                    "updated_by": creator,
-                    "field": "batch_import",
-                    "old_value": "",
-                    "new_value": status,
-                    "note": "Imported via CSV/Sheet import tool",
-                }
-            ],
+    if not content_to_parse:
+        return JSONResponse(status_code=400, content={"error": "No content or URL provided to import."})
+
+    # Use Gemini Flash to interpret the content
+    parsed_items = parse_work_items_with_gemini(content_to_parse, default_product_name=product_name)
+
+    if preview_only:
+        return {
+            "success": True,
+            "preview": True,
+            "parsed_count": len(parsed_items),
+            "items": parsed_items,
         }
-        db.collection(COLLECTION_NAME).document(item_id).set(item)
-        imported_count += 1
 
-    return {"success": True, "imported_count": imported_count}
+    # Direct commit
+    saved = persist_imported_items(
+        items=parsed_items,
+        org_id=org_id,
+        product_id=product_id,
+        product_name=product_name,
+        creator_email=creator,
+        db_client=db,
+        collection_name=COLLECTION_NAME,
+    )
+    return {"success": True, "imported_count": len(saved), "items": saved}
+
+
+@app.post("/api/items/import/file")
+async def bulk_import_file(
+    file: UploadFile = File(...),
+    org_id: str = "customer-acme",
+    product_id: str = "prod-acme-streaming",
+    preview_only: bool = True,
+    creator: str = "importer@quickplay.com",
+):
+    """Uploads and parses a file (.xlsx, .docx, .csv, .tsv, .txt) with Gemini."""
+    from app.import_service import (
+        extract_text_from_docx_bytes,
+        extract_text_from_xlsx_bytes,
+        parse_work_items_with_gemini,
+        persist_imported_items,
+    )
+
+    filename = file.filename or "uploaded_file"
+    file_bytes = await file.read()
+    ext = filename.lower().split(".")[-1]
+
+    if ext == "docx":
+        extracted_text = extract_text_from_docx_bytes(file_bytes)
+    elif ext in ["xlsx", "xlsm"]:
+        extracted_text = extract_text_from_xlsx_bytes(file_bytes)
+    else:
+        # csv, tsv, txt, md
+        try:
+            extracted_text = file_bytes.decode("utf-8")
+        except UnicodeDecodeError:
+            extracted_text = file_bytes.decode("latin-1", errors="ignore")
+
+    # Determine product name
+    product_name = ""
+    comp = COMPANIES_REGISTRY.get(org_id)
+    if comp:
+        for p in comp.get("products", []):
+            if p["product_id"] == product_id:
+                product_name = p["name"]
+                break
+
+    parsed_items = parse_work_items_with_gemini(extracted_text, default_product_name=product_name)
+
+    if preview_only:
+        return {
+            "success": True,
+            "preview": True,
+            "filename": filename,
+            "parsed_count": len(parsed_items),
+            "items": parsed_items,
+        }
+
+    saved = persist_imported_items(
+        items=parsed_items,
+        org_id=org_id,
+        product_id=product_id,
+        product_name=product_name,
+        creator_email=creator,
+        db_client=db,
+        collection_name=COLLECTION_NAME,
+    )
+    return {"success": True, "imported_count": len(saved), "items": saved}
 
 
 @app.get("/api/daily-summary")

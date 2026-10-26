@@ -14,7 +14,14 @@
 # limitations under the License.
 
 import datetime
+import os
 from typing import Any, Dict, List, Optional
+
+# Ensure Google GenAI uses Vertex AI
+os.environ.setdefault("GOOGLE_GENAI_USE_VERTEXAI", "True")
+os.environ.setdefault("GOOGLE_CLOUD_PROJECT", "qwiklabs-gcp-04-ddbf4b181b7a")
+os.environ.setdefault("GOOGLE_CLOUD_LOCATION", "us-central1")
+
 from google.adk.agents import Agent
 from google.adk.apps import App
 from google.adk.models import Gemini
@@ -22,7 +29,7 @@ from google.cloud import firestore
 from google.genai import types
 
 MODEL = "gemini-2.5-flash"
-FIRESTORE_PROJECT = "qwiklabs-gcp-04-ddbf4b181b7a"
+FIRESTORE_PROJECT = os.environ.get("GOOGLE_CLOUD_PROJECT", "qwiklabs-gcp-04-ddbf4b181b7a")
 COLLECTION_NAME = "action_items"
 
 # Initialize Firestore client with explicit string project ID
@@ -788,6 +795,82 @@ def check_approaching_deadlines_and_reminders(
     }
 
 
+def import_action_items_from_text(
+    source_text: str,
+    org_id: str = "customer-acme",
+    product_id: Optional[str] = None,
+    user_email: str = "alex@quickplay.com",
+) -> Dict[str, Any]:
+    """Intelligently interprets work item data from meeting notes, Google Docs/Sheets, CSV,
+    or unstructured task lists using Gemini, and creates structured action items in the tracker.
+
+    Args:
+        source_text: The raw text, tabular rows, or meeting notes describing the work items.
+        org_id: The organization ID to assign the imported work items to.
+        product_id: The specific product ID (e.g. 'prod-acme-streaming') or None to auto-assign.
+        user_email: The email of the user requesting the import.
+
+    Returns:
+        Summary of the created action items or an access denied error.
+    """
+    from app.import_service import parse_work_items_with_gemini, persist_imported_items
+
+    auth_err = check_user_authorization(user_email, org_id, product_id)
+    if auth_err:
+        return {"error": auth_err, "access_denied": True}
+
+    # Verify write permission
+    profile = USER_PROFILES.get(user_email, {})
+    if not profile.get("is_internal") and profile.get("default_role") == "customer_view":
+        return {
+            "error": f"Access Denied: Account '{user_email}' has read-only privileges and cannot import new work items.",
+            "access_denied": True,
+        }
+
+    # Determine product name
+    prod_name = "General Work Items"
+    if product_id:
+        prod_map = {
+            "prod-acme-streaming": "Video Streaming Platform",
+            "prod-acme-dvr": "Cloud DVR & Storage",
+            "prod-globex-ott": "OTT Multi-Screen App",
+            "prod-initech-linear": "Linear 24/7 Playout",
+        }
+        prod_name = prod_map.get(product_id, product_id)
+
+    parsed_items = parse_work_items_with_gemini(source_text, default_product_name=prod_name)
+    if not parsed_items:
+        return {"error": "Could not identify any distinct work items from the provided text.", "created_count": 0}
+
+    saved = persist_imported_items(
+        items=parsed_items,
+        org_id=org_id,
+        product_id=product_id or "prod-acme-streaming",
+        product_name=prod_name,
+        creator_email=user_email,
+        db_client=db,
+        collection_name=COLLECTION_NAME,
+    )
+
+    return {
+        "success": True,
+        "org_id": org_id,
+        "product_id": product_id,
+        "imported_count": len(saved),
+        "items": [
+            {
+                "item_id": it["item_id"],
+                "title": it["title"],
+                "status": it["status"],
+                "assignee": it["assignee"],
+                "delivery_date": it["delivery_date"],
+                "milestone_count": len(it.get("nodes", [])),
+            }
+            for it in saved
+        ],
+    }
+
+
 root_agent = Agent(
     name="root_agent",
     model=Gemini(
@@ -803,12 +886,13 @@ root_agent = Agent(
         "   - Use `get_work_item_updates_today` with `item_id_or_title=x` and the user's `user_email`.\n"
         "   - Highlight the current status, all history/audit logs recorded today, milestone completions today, "
         "     and current milestone progress.\n"
-        "   - If no updates were recorded today, clearly summarize the item's current status, active milestones, "
-        "     and mention that no status transitions occurred today.\n"
         "2. 'What is the update summary for today?':\n"
         "   - Use `get_daily_update_summary` with `org_id`, `user_email`, and optional `product_id`.\n"
-        "   - Recognize which company and product the user is currently viewing (passed in the security context).\n"
-        "   - Provide a concise summary of items updated or completed today, plus an active items overview.\n\n"
+        "   - Provide a concise summary of items updated or completed today, plus an active items overview.\n"
+        "3. Import from text / meeting notes / Docs / Sheets:\n"
+        "   - When the user asks to import or add items from meeting notes, a doc, or a list, use `import_action_items_from_text`.\n"
+        "   - Pass the text, user's current `org_id`, `product_id`, and `user_email`.\n"
+        "   - Confirm the created work items, their assigned milestones, and target delivery dates to the user.\n\n"
         "STRICT SECURITY & ACCESS CONTROL DIRECTIVES:\n"
         "1. Every interaction provides the requesting user's identity, role, and current organization context.\n"
         "2. Pass the user's email (`user_email`) and organization (`org_id`) to every tool call.\n"
@@ -816,10 +900,7 @@ root_agent = Agent(
         "or receive information about Company B. If a customer user asks about an organization other than their "
         "entitled organization, firmly refuse and explain that their account does not have access to that company.\n"
         "4. PRODUCT RESTRICTIONS: Some client companies have multiple distinct products (e.g. Acme has 'Video Streaming Platform' "
-        "and 'Cloud DVR & Storage'). Customer accounts only have access to their entitled products. For example, if a user's "
-        "account only has access to Product A, they must NEVER be allowed to see, query, or receive information about Product B. "
-        "If they inquire about an unentitled product or if a tool returns an 'access_denied' / authorization error, "
-        "state clearly that their account is not entitled to access that product's work items or data.\n"
+        "and 'Cloud DVR & Storage'). Customer accounts only have access to their entitled products.\n"
         "5. Internal Quickplay team members (e.g. alex@quickplay.com) are operators with full visibility across companies and products.\n"
         "6. Always adhere strictly to tool responses. If an access denied error is returned, politely inform the user of their exact entitlement boundary."
     ),
@@ -833,6 +914,7 @@ root_agent = Agent(
         attach_reference_link,
         generate_daily_executive_digest,
         check_approaching_deadlines_and_reminders,
+        import_action_items_from_text,
     ],
 )
 

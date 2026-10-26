@@ -636,15 +636,98 @@
 
 <!-- Modal: Bulk Import -->
 <div class="modal-overlay" id="modal-import">
-  <div class="modal-box">
-    <div class="modal-title">Bulk Import (Sheets, Docs, CSV)</div>
-    <div class="form-group">
-      <label>Paste comma-separated rows (Title, Status, Priority, Assignee):</label>
-      <textarea id="import-text" rows="5" placeholder="DRM License Server Migration, in progress, high, sarah@quickplay.com&#10;Dynamic Ad Insertion Tuning, QA, medium, jordan@quickplay.com"></textarea>
+  <div class="modal-box" style="max-width:720px; width:92%; max-height:90vh; display:flex; flex-direction:column;">
+    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:0.75rem; margin-bottom:1rem;">
+      <div style="display:flex; align-items:center; gap:0.5rem;">
+        <span class="material-symbols-outlined" style="color:var(--primary); font-size:1.4rem;">smart_toy</span>
+        <h3 style="font-size:1.15rem; font-weight:800; margin:0;">Agent Import Concierge (Sheets, Docs, Files)</h3>
+      </div>
+      <button onclick="closeModals()" style="background:none; border:none; font-size:1.2rem; cursor:pointer; color:var(--text-muted);">&times;</button>
     </div>
-    <div style="display:flex; justify-content:flex-end; gap:0.5rem;">
+
+    <!-- Step 1: Input source selection -->
+    <div id="import-input-section" style="overflow-y:auto; flex:1; padding-right:4px;">
+      <div style="display:flex; gap:0.5rem; margin-bottom:1rem; border-bottom:1px solid var(--border); padding-bottom:0.5rem;">
+        <button id="import-tab-paste" class="btn btn-primary" style="font-size:0.78rem; padding:0.35rem 0.75rem;" onclick="switchImportTab('paste')">
+          <span class="material-symbols-outlined" style="font-size:0.9rem;">content_paste</span> Paste Notes / Sheet Rows
+        </button>
+        <button id="import-tab-file" class="btn" style="font-size:0.78rem; padding:0.35rem 0.75rem;" onclick="switchImportTab('file')">
+          <span class="material-symbols-outlined" style="font-size:0.9rem;">upload_file</span> Upload (.xlsx, .docx, .csv)
+        </button>
+        <button id="import-tab-url" class="btn" style="font-size:0.78rem; padding:0.35rem 0.75rem;" onclick="switchImportTab('url')">
+          <span class="material-symbols-outlined" style="font-size:0.9rem;">link</span> Google Docs / Sheets URL
+        </button>
+      </div>
+
+      <div class="form-group">
+        <label style="font-weight:700; font-size:0.8rem;">Target Product for Imported Items</label>
+        <select id="import-product-select" style="font-size:0.85rem; padding:0.4rem;">
+          <!-- Populated dynamically -->
+        </select>
+        <span style="font-size:0.72rem; color:var(--text-muted);">Work items will be created and organized under this product.</span>
+      </div>
+
+      <!-- Tab 1: Paste Text -->
+      <div id="import-view-paste" class="form-group">
+        <label style="font-weight:700; font-size:0.8rem;">Paste Spreadsheet Rows, Meeting Notes, or Task Lists:</label>
+        <textarea id="import-text" rows="7" style="font-family:monospace; font-size:0.8rem; line-height:1.4;" placeholder="Example 1 (Table):&#10;HLS Low-Latency Packaging, in progress, high, sarah@quickplay.com, 2026-11-20&#10;Cloud DVR S3 Lifecycle Policies, QA, medium, jordan@quickplay.com, 2026-11-28&#10;&#10;Example 2 (Meeting Notes):&#10;Sprint 44 Retro - Quickplay Playback:&#10;- Deploy Safari FairPlay DRM patch (Assignee: Alex Vance, Target: Nov 14, Status: in progress). Milestones: QA regression test (Oct 30), Staging roll-out (Nov 5).&#10;- Initech Master Linear feed SSAI time-sync bug (Assignee: Jordan, Priority: critical, Target: Nov 10)."></textarea>
+      </div>
+
+      <!-- Tab 2: File Upload -->
+      <div id="import-view-file" class="form-group" style="display:none;">
+        <label style="font-weight:700; font-size:0.8rem;">Select Document or Spreadsheet (.xlsx, .docx, .csv, .tsv, .txt):</label>
+        <div style="border:2px dashed var(--border); border-radius:8px; padding:2rem 1rem; text-align:center; background:#f8fafc;">
+          <span class="material-symbols-outlined" style="font-size:2.5rem; color:#64748b; display:block; margin-bottom:0.5rem;">file_upload</span>
+          <input type="file" id="import-file-input" accept=".xlsx,.xlsm,.docx,.csv,.tsv,.txt,.md" style="font-size:0.85rem;">
+          <p style="font-size:0.75rem; color:var(--text-muted); margin-top:0.5rem;">
+            The agent will parse table grids, bulleted milestones, and delivery dates from the file.
+          </p>
+        </div>
+      </div>
+
+      <!-- Tab 3: Google URL -->
+      <div id="import-view-url" class="form-group" style="display:none;">
+        <label style="font-weight:700; font-size:0.8rem;">Google Sheets or Google Docs Shareable URL:</label>
+        <input type="url" id="import-url-input" placeholder="https://docs.google.com/spreadsheets/d/... or https://docs.google.com/document/d/..." style="font-size:0.85rem; padding:0.45rem;">
+        <span style="font-size:0.72rem; color:var(--text-muted); margin-top:0.25rem; display:block;">
+          Make sure the link has view permissions (e.g. "Anyone with the link can view").
+        </span>
+      </div>
+
+      <div id="import-spinner" style="display:none; text-align:center; padding:1.5rem; background:#eff6ff; border-radius:8px; border:1px solid #bfdbfe; margin-top:1rem;">
+        <span class="material-symbols-outlined" style="font-size:2rem; color:#2563eb; animation:spin 1.5s linear infinite; display:inline-block;">sync</span>
+        <div style="font-weight:700; color:#1e40af; font-size:0.9rem; margin-top:0.4rem;">Gemini Agent is Analyzing Content...</div>
+        <div style="font-size:0.78rem; color:#3b82f6;">Extracting work item titles, lifecycle stages, milestones, assignees, and dates.</div>
+      </div>
+    </div>
+
+    <!-- Step 2: Agent Preview Section (Shown after analysis) -->
+    <div id="import-preview-section" style="display:none; overflow-y:auto; flex:1; max-height:450px; border-top:1px solid var(--border); padding-top:0.75rem; margin-top:0.5rem;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
+        <span style="font-size:0.85rem; font-weight:700; color:var(--text-main);">
+          Extracted Preview (<span id="preview-count">0</span> Items Interpreted)
+        </span>
+        <span style="font-size:0.75rem; color:var(--text-muted);">Review before committing to the tracker</span>
+      </div>
+      <div id="preview-items-container" style="display:flex; flex-direction:column; gap:0.6rem;">
+        <!-- Populated dynamically with preview item cards -->
+      </div>
+    </div>
+
+    <!-- Modal Actions Footer -->
+    <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--border); padding-top:0.75rem; margin-top:0.75rem;">
       <button class="btn" onclick="closeModals()">Cancel</button>
-      <button class="btn btn-primary" onclick="submitImport()">Import Items</button>
+      <div style="display:flex; gap:0.5rem;">
+        <button class="btn" id="btn-back-import" style="display:none;" onclick="backToImportEdit()">
+          Edit Source
+        </button>
+        <button class="btn btn-primary" id="btn-analyze-import" onclick="analyzeAndPreviewImport()">
+          <span class="material-symbols-outlined" style="font-size:1rem;">auto_awesome</span> Analyze & Preview
+        </button>
+        <button class="btn btn-primary" id="btn-commit-import" style="display:none; background:#16a34a; border-color:#16a34a;" onclick="commitImportedItems()">
+          <span class="material-symbols-outlined" style="font-size:1rem;">check_circle</span> Confirm & Import (<span id="commit-count">0</span>)
+        </button>
+      </div>
     </div>
   </div>
 </div>
@@ -1611,48 +1694,203 @@ function openNewModal() {
   modal.style.display = 'flex'; 
 }
 
-function openImportModal() { document.getElementById('modal-import').style.display = 'flex'; }
-function closeModals() { document.querySelectorAll('.modal-overlay').forEach(el => el.style.display = 'none'); }
+let currentImportTab = 'paste';
+let currentParsedImportItems = [];
 
-async function submitNewItem() {
-  const title = document.getElementById('new-title').value;
-  const product_id = document.getElementById('new-product').value;
-  const space_id = document.getElementById('new-space').value;
-  const status = document.getElementById('new-status').value;
-  const assignee = document.getElementById('new-assignee').value;
-  const delivery_date = document.getElementById('new-date').value;
-
-  const company = directoryCompanies.find(c => c.org_id === currentOrg);
-  const prodObj = company ? company.products.find(p => p.product_id === product_id) : null;
-  const product_name = prodObj ? prodObj.name : '';
-
-  await fetch('/api/items', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ 
-      title, 
-      product_id,
-      product_name,
-      space_id, 
-      status, 
-      assignee, 
-      delivery_date, 
-      org_id: currentOrg 
-    })
+function switchImportTab(tab) {
+  currentImportTab = tab;
+  ['paste', 'file', 'url'].forEach(t => {
+    const btn = document.getElementById(`import-tab-t`);
+    const view = document.getElementById(`import-view-${t}`);
+    const tabBtn = document.getElementById(`import-tab-${t}`);
+    if (tabBtn) tabBtn.className = t === tab ? 'btn btn-primary' : 'btn';
+    if (view) view.style.display = t === tab ? 'block' : 'none';
   });
-  closeModals();
-  loadData();
 }
 
-async function submitImport() {
-  const raw_text = document.getElementById('import-text').value;
-  await fetch('/api/items/import', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ raw_text, org_id: currentOrg })
+function openImportModal() {
+  const modal = document.getElementById('modal-import');
+  const prodSelect = document.getElementById('import-product-select');
+  prodSelect.innerHTML = '';
+
+  const company = directoryCompanies.find(c => c.org_id === currentOrg);
+  if (company && company.products) {
+    const profile = directoryProfiles[currentUser];
+    let allowedProds = company.products;
+    if (profile && !profile.is_internal && profile.product_entitlements) {
+      const ent = profile.product_entitlements[currentOrg] || [];
+      allowedProds = company.products.filter(p => ent.includes(p.product_id));
+    }
+    allowedProds.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.product_id;
+      opt.textContent = `${p.name} (${p.product_id})`;
+      if (currentProduct && p.product_id === currentProduct) opt.selected = true;
+      prodSelect.appendChild(opt);
+    });
+  }
+
+  // Reset modal state
+  backToImportEdit();
+  modal.style.display = 'flex';
+}
+
+function backToImportEdit() {
+  document.getElementById('import-input-section').style.display = 'block';
+  document.getElementById('import-preview-section').style.display = 'none';
+  document.getElementById('btn-back-import').style.display = 'none';
+  document.getElementById('btn-analyze-import').style.display = 'inline-flex';
+  document.getElementById('btn-commit-import').style.display = 'none';
+  document.getElementById('import-spinner').style.display = 'none';
+}
+
+async function analyzeAndPreviewImport() {
+  const spinner = document.getElementById('import-spinner');
+  const product_id = document.getElementById('import-product-select').value;
+  spinner.style.display = 'block';
+
+  try {
+    let result = null;
+
+    if (currentImportTab === 'file') {
+      const fileInput = document.getElementById('import-file-input');
+      if (!fileInput.files || fileInput.files.length === 0) {
+        alert('Please choose a file to upload first.');
+        spinner.style.display = 'none';
+        return;
+      }
+      const formData = new FormData();
+      formData.append('file', fileInput.files[0]);
+      formData.append('org_id', currentOrg);
+      formData.append('product_id', product_id);
+      formData.append('creator', currentUser);
+      formData.append('preview_only', 'true');
+
+      const resp = await fetch('/api/items/import/file', {
+        method: 'POST',
+        body: formData,
+      });
+      result = await resp.json();
+    } else {
+      const raw_text = document.getElementById('import-text').value;
+      const url = document.getElementById('import-url-input').value;
+
+      if (currentImportTab === 'paste' && !raw_text.trim()) {
+        alert('Please paste some text, table rows, or notes.');
+        spinner.style.display = 'none';
+        return;
+      }
+      if (currentImportTab === 'url' && !url.trim()) {
+        alert('Please provide a Google Sheets or Google Docs shareable link.');
+        spinner.style.display = 'none';
+        return;
+      }
+
+      const resp = await fetch('/api/items/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          raw_text: currentImportTab === 'paste' ? raw_text : '',
+          url: currentImportTab === 'url' ? url : '',
+          preview_only: true,
+          org_id: currentOrg,
+          product_id: product_id,
+          creator: currentUser,
+        }),
+      });
+      result = await resp.json();
+    }
+
+    spinner.style.display = 'none';
+
+    if (result && result.items && result.items.length > 0) {
+      currentParsedImportItems = result.items;
+      renderImportPreviewCards(currentParsedImportItems);
+      document.getElementById('import-input-section').style.display = 'none';
+      document.getElementById('import-preview-section').style.display = 'block';
+      document.getElementById('btn-back-import').style.display = 'inline-flex';
+      document.getElementById('btn-analyze-import').style.display = 'none';
+      document.getElementById('btn-commit-import').style.display = 'inline-flex';
+      document.getElementById('commit-count').textContent = currentParsedImportItems.length;
+      document.getElementById('preview-count').textContent = currentParsedImportItems.length;
+    } else {
+      alert('The agent could not detect any distinct action items from the content. Please verify or paste clearer notes.');
+    }
+  } catch (err) {
+    spinner.style.display = 'none';
+    alert('Import analysis failed: ' + err);
+  }
+}
+
+function renderImportPreviewCards(items) {
+  const container = document.getElementById('preview-items-container');
+  container.innerHTML = '';
+
+  items.forEach((it, idx) => {
+    const card = document.createElement('div');
+    card.style.cssText = 'background:#f8fafc; border:1px solid var(--border); border-radius:8px; padding:0.75rem 1rem;';
+
+    const nodesList = (it.nodes || []).map(n => `
+      <span style="display:inline-flex; align-items:center; gap:3px; background:#e0f2fe; color:#0369a1; padding:2px 6px; border-radius:4px; font-size:0.7rem; font-weight:600;">
+        <span class="material-symbols-outlined" style="font-size:0.75rem;">flag</span>
+        ${n.title} (${n.target_date || 'No date'})
+      </span>
+    `).join(' ') || '<span style="color:#94a3b8; font-size:0.72rem;">No milestones</span>';
+
+    card.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:0.35rem;">
+        <div>
+          <strong style="color:var(--text-main); font-size:0.9rem;">${idx + 1}. ${it.title}</strong>
+          <p style="color:var(--text-muted); font-size:0.78rem; margin:2px 0 0 0;">${it.description || ''}</p>
+        </div>
+        <span class="badge" style="background:#e0f2fe; color:#0369a1; font-weight:700; font-size:0.72rem;">${it.status || 'ideation'}</span>
+      </div>
+      <div style="display:flex; flex-wrap:wrap; gap:0.75rem; align-items:center; font-size:0.75rem; color:#475569; margin-top:0.4rem; padding-top:0.4rem; border-top:1px dashed #e2e8f0;">
+        <span>👤 Assignee: <strong>${it.assignee || 'Unassigned'}</strong></span>
+        <span>📅 Target: <strong>${it.delivery_date || 'None'}</strong></span>
+        <span>⚡ Priority: <strong>${it.priority || 'medium'}</strong></span>
+        <span>🏷️ Space: <strong>${it.space_id || 'general'}</strong></span>
+      </div>
+      <div style="margin-top:0.4rem; display:flex; gap:0.4rem; align-items:center; flex-wrap:wrap;">
+        <span style="font-size:0.72rem; color:var(--text-muted); font-weight:600;">Milestones:</span>
+        ${nodesList}
+      </div>
+    `;
+    container.appendChild(card);
   });
-  closeModals();
-  loadData();
+}
+
+async function commitImportedItems() {
+  const product_id = document.getElementById('import-product-select').value;
+  const btn = document.getElementById('btn-commit-import');
+  btn.disabled = true;
+  btn.innerHTML = `<span class="material-symbols-outlined" style="animation:spin 1.5s linear infinite; font-size:1rem;">sync</span> Importing...`;
+
+  try {
+    const resp = await fetch('/api/items/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        items: currentParsedImportItems,
+        org_id: currentOrg,
+        product_id: product_id,
+        creator: currentUser,
+      }),
+    });
+    const result = await resp.json();
+    if (result.success) {
+      alert(`Successfully imported ${result.imported_count} work items!`);
+      closeModals();
+      loadData();
+    } else {
+      alert('Error saving items: ' + JSON.stringify(result));
+    }
+  } catch (e) {
+    alert('Commit failed: ' + e);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `<span class="material-symbols-outlined" style="font-size:1rem;">check_circle</span> Confirm & Import (<span id="commit-count">${currentParsedImportItems.length}</span>)`;
+  }
 }
 
 async function sendChat(e) {
