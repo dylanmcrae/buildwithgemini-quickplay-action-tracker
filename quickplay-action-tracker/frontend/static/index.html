@@ -848,12 +848,6 @@ function closeImportModal() {
   if (modal) modal.style.display = 'none';
 }
 window.closeImportModal = closeImportModal;
-window.openNewCustomerModal = function() {
-  if (typeof openNewCustomerModal === 'function') openNewCustomerModal();
-};
-window.openNewProductModal = function(targetOrgId) {
-  if (typeof openNewProductModal === 'function') openNewProductModal(targetOrgId);
-};
 
 // Close modals on Escape key press
 document.addEventListener('keydown', (e) => {
@@ -1973,6 +1967,11 @@ async function submitNewProduct() {
   }
 }
 
+window.openNewCustomerModal = openNewCustomerModal;
+window.submitNewCustomer = submitNewCustomer;
+window.openNewProductModal = openNewProductModal;
+window.submitNewProduct = submitNewProduct;
+
 async function submitNewItem() {
   const title = document.getElementById('new-title').value;
   const product_id = document.getElementById('new-product').value;
@@ -2369,6 +2368,12 @@ function closeChat() {
 
 // Ensure robust event listener binding for modal close elements
 document.addEventListener('DOMContentLoaded', () => {
+  const btnAddCust = document.getElementById('btn-add-customer');
+  if (btnAddCust) btnAddCust.addEventListener('click', openNewCustomerModal);
+
+  const btnAddProd = document.getElementById('btn-add-product');
+  if (btnAddProd) btnAddProd.addEventListener('click', () => openNewProductModal());
+
   const btnX = document.getElementById('import-close-x');
   if (btnX) btnX.addEventListener('click', closeModals);
 
