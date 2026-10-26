@@ -97,15 +97,123 @@ USER_PROFILES = {
     }
 }
 
-# --- API Routes for Action Items ---
+def sync_companies_registry():
+    """Sync custom companies and products from Firestore into COMPANIES_REGISTRY."""
+    try:
+        docs = db.collection("organizations").stream()
+        for doc in docs:
+            data = doc.to_dict()
+            org_id = data.get("org_id")
+            if org_id:
+                if org_id in COMPANIES_REGISTRY:
+                    # Merge any newly added products
+                    existing_prod_ids = {p["product_id"] for p in COMPANIES_REGISTRY[org_id].get("products", [])}
+                    for p in data.get("products", []):
+                        if p.get("product_id") not in existing_prod_ids:
+                            COMPANIES_REGISTRY[org_id].setdefault("products", []).append(p)
+                            existing_prod_ids.add(p["product_id"])
+                else:
+                    COMPANIES_REGISTRY[org_id] = data
+                # Automatically grant internal users access to this organization
+                for profile in USER_PROFILES.values():
+                    if profile.get("is_internal") and org_id not in profile.get("allowed_orgs", []):
+                        profile.setdefault("allowed_orgs", []).append(org_id)
+    except Exception as e:
+        print(f"Warning: Could not sync organizations from Firestore: {e}")
+
+sync_companies_registry()
+
+# --- API Routes for Organizations & Products ---
 
 @app.get("/api/organizations")
 async def get_organizations():
     """Returns the company directory, products, and available user profiles."""
+    sync_companies_registry()
     return {
         "companies": list(COMPANIES_REGISTRY.values()),
         "user_profiles": USER_PROFILES
     }
+
+@app.post("/api/customers")
+async def create_customer(req: Request):
+    """Creates a new customer organization (internal operators only)."""
+    body = await req.json()
+    name = (body.get("name") or "").strip()
+    if not name:
+        return JSONResponse(status_code=400, content={"error": "Customer name is required."})
+
+    # Generate slug for org_id if not explicitly provided
+    import re
+    slug = re.sub(r'[^a-z0-9]+', '-', name.lower()).strip('-')
+    org_id = body.get("org_id") or f"customer-{slug}"
+
+    if org_id in COMPANIES_REGISTRY:
+        return JSONResponse(status_code=400, content={"error": f"Customer '{org_id}' already exists."})
+
+    initial_products = body.get("products") or []
+    new_company = {
+        "org_id": org_id,
+        "name": name,
+        "description": body.get("description", ""),
+        "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "created_by": body.get("created_by", "alex@quickplay.com"),
+        "products": initial_products,
+    }
+
+    # Persist to Firestore and memory
+    try:
+        db.collection("organizations").document(org_id).set(new_company)
+    except Exception as e:
+        print(f"Error persisting new customer to Firestore: {e}")
+
+    COMPANIES_REGISTRY[org_id] = new_company
+
+    # Grant internal users access to the new organization
+    for profile in USER_PROFILES.values():
+        if profile.get("is_internal") and org_id not in profile.get("allowed_orgs", []):
+            profile.setdefault("allowed_orgs", []).append(org_id)
+
+    return {"success": True, "company": new_company}
+
+@app.post("/api/customers/{org_id}/products")
+async def create_product_under_customer(org_id: str, req: Request):
+    """Adds a new product platform under a customer organization (internal operators only)."""
+    sync_companies_registry()
+    company = COMPANIES_REGISTRY.get(org_id)
+    if not company:
+        return JSONResponse(status_code=404, content={"error": f"Customer '{org_id}' not found."})
+
+    body = await req.json()
+    name = (body.get("name") or "").strip()
+    if not name:
+        return JSONResponse(status_code=400, content={"error": "Product name is required."})
+
+    import re
+    slug = re.sub(r'[^a-z0-9]+', '-', name.lower()).strip('-')
+    product_id = body.get("product_id") or f"prod-{org_id.replace('customer-', '')}-{slug}"
+
+    existing_ids = {p.get("product_id") for p in company.get("products", [])}
+    if product_id in existing_ids:
+        return JSONResponse(status_code=400, content={"error": f"Product '{product_id}' already exists under {org_id}."})
+
+    new_prod = {
+        "product_id": product_id,
+        "name": name,
+        "description": body.get("description", ""),
+        "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "created_by": body.get("created_by", "alex@quickplay.com"),
+    }
+
+    company.setdefault("products", []).append(new_prod)
+
+    # Persist updated company definition to Firestore
+    try:
+        db.collection("organizations").document(org_id).set(company, merge=True)
+    except Exception as e:
+        print(f"Error persisting updated product catalog to Firestore: {e}")
+
+    return {"success": True, "product": new_prod, "org_id": org_id}
+
 
 @app.get("/api/items")
 async def get_items(org_id: str = "customer-acme", product_id: Optional[str] = None, include_closed: bool = True):
