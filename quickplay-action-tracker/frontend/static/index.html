@@ -1,0 +1,1825 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quickplay Action Tracker</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Material+Symbols+Outlined">
+<style>
+  :root {
+    --primary: #1060eb;
+    --primary-hover: #0b4ec2;
+    --primary-light: #eef4ff;
+    --success: #12b76a;
+    --warning: #f79009;
+    --danger: #f04438;
+    --bg-page: #f8fafc;
+    --bg-card: #ffffff;
+    --border: #e2e8f0;
+    --text-main: #0f172a;
+    --text-muted: #64748b;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
+    --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.08);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; }
+  body { background: var(--bg-page); color: var(--text-main); display: flex; height: 100vh; overflow: hidden; }
+
+  /* Left Sidebar */
+  aside {
+    width: 280px;
+    background: #0b132b;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    padding: 1.5rem 1.25rem;
+    gap: 1.5rem;
+  }
+  .brand { display: flex; align-items: center; gap: 0.75rem; font-size: 1.15rem; font-weight: 800; letter-spacing: -0.02em; }
+  .brand-badge { background: #3a86ff; padding: 0.2rem 0.55rem; border-radius: 6px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; }
+
+  .user-badge {
+    background: #1c2541;
+    border-radius: 10px;
+    padding: 0.85rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+  .user-badge .role-tag {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #6fffe9;
+  }
+  .user-badge .user-email { font-size: 0.85rem; font-weight: 600; color: #e0e1dd; }
+
+  .nav-group { display: flex; flex-direction: column; gap: 0.4rem; flex: 1; }
+  .nav-label { font-size: 0.7rem; font-weight: 700; color: #5bc0be; text-transform: uppercase; margin-bottom: 0.2rem; }
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.65rem 0.85rem;
+    border-radius: 8px;
+    cursor: pointer;
+    color: #c0c6d8;
+    font-size: 0.9rem;
+    font-weight: 600;
+    transition: all 0.15s ease;
+  }
+  .nav-item:hover, .nav-item.active { background: #1c2541; color: #fff; }
+  .nav-item.active { border-left: 3px solid #3a86ff; }
+
+  /* Main Workspace */
+  main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow-y: auto;
+  }
+
+  header {
+    background: #fff;
+    border-bottom: 1px solid var(--border);
+    padding: 1rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .header-actions { display: flex; gap: 0.75rem; align-items: center; }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.55rem 1rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border-radius: 8px;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: #fff;
+    color: var(--text-main);
+    transition: all 0.15s;
+  }
+  .btn:hover { background: #f1f5f9; }
+  .btn-primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .btn-primary:hover { background: var(--primary-hover); }
+
+  .content-area {
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    max-width: 1300px;
+  }
+
+  /* Metric cards */
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+  }
+  .metric-card {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    box-shadow: var(--shadow-sm);
+  }
+  .metric-title { font-size: 0.8rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; }
+  .metric-val { font-size: 1.75rem; font-weight: 800; color: var(--text-main); }
+
+  /* Work Item Board */
+  .section-header { display: flex; justify-content: space-between; align-items: center; }
+  .items-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #fff;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+  }
+  .items-table th {
+    background: #f8fafc;
+    text-align: left;
+    padding: 0.9rem 1.2rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+  }
+  .items-table td {
+    padding: 1rem 1.2rem;
+    font-size: 0.85rem;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  .badge {
+    display: inline-block;
+    padding: 0.25rem 0.6rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: capitalize;
+  }
+  .badge-progress { background: #e0f2fe; color: #0369a1; }
+  .badge-qa { background: #fef3c7; color: #b45309; }
+  .badge-closed { background: #dcfce7; color: #15803d; }
+  .badge-staging { background: #f3e8ff; color: #6b21a8; }
+
+  /* Inline editable fields */
+  .editable-field {
+    cursor: pointer;
+    border-radius: 6px;
+    padding: 2px 4px;
+    transition: background 0.15s;
+    display: inline-block;
+  }
+  .editable-field:hover {
+    background: #f1f5f9;
+    outline: 1px dashed #94a3b8;
+  }
+  .inline-status-select {
+    padding: 0.35rem 0.6rem;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    background: #fff;
+  }
+  .inline-edit-input {
+    padding: 0.35rem 0.5rem;
+    font-size: 0.85rem;
+    border: 1px solid var(--primary);
+    border-radius: 6px;
+    width: 100%;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(16, 96, 235, 0.15);
+  }
+
+  /* Modals */
+  .modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(15, 23, 42, 0.6);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+  .modal-box {
+    background: #fff;
+    border-radius: 14px;
+    width: 540px;
+    max-width: 90vw;
+    padding: 1.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.2rem;
+    box-shadow: var(--shadow-md);
+  }
+  .modal-title { font-size: 1.2rem; font-weight: 700; }
+  .form-group { display: flex; flex-direction: column; gap: 0.4rem; }
+  .form-group label { font-size: 0.8rem; font-weight: 600; color: var(--text-muted); }
+  .form-group input, .form-group select, .form-group textarea {
+    padding: 0.65rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 0.9rem;
+  }
+
+  /* Chat floating widget */
+  .chat-panel {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    width: 320px;
+    height: 440px;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: 0 10px 25px -5px rgba(0,0,0,0.18);
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+    z-index: 900;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .chat-panel.open {
+    display: flex;
+  }
+  .chat-header {
+    background: #0b132b;
+    color: #fff;
+    padding: 0.65rem 0.9rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    user-select: none;
+  }
+  .chat-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .chat-header-btn {
+    background: transparent;
+    border: none;
+    color: #c0c6d8;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px;
+    border-radius: 4px;
+    transition: all 0.15s;
+  }
+  .chat-header-btn:hover {
+    color: #fff;
+    background: rgba(255,255,255,0.1);
+  }
+  /* Small circular floating agent icon launcher */
+  .chat-fab-toggle {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: #fff;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 14px rgba(16, 96, 235, 0.4);
+    cursor: pointer;
+    z-index: 899;
+    transition: transform 0.2s, background 0.15s;
+  }
+  .chat-fab-toggle:hover {
+    background: var(--primary-hover);
+    transform: scale(1.08);
+  }
+  .chat-body { flex: 1; padding: 0.75rem; overflow-y: auto; display: flex; flex-direction: column; gap: 0.65rem; font-size: 0.82rem; }
+  .chat-input-bar { display: flex; gap: 0.35rem; padding: 0.6rem; border-top: 1px solid var(--border); background: #f8fafc; }
+  .chat-input-bar input { flex: 1; padding: 0.45rem 0.65rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.8rem; }
+</style>
+</head>
+<body>
+
+<!-- Left Navigation Sidebar -->
+<aside>
+  <div class="brand">
+    <span class="material-symbols-outlined" style="color:#3a86ff">rocket_launch</span>
+    <span>Quickplay</span>
+    <span class="brand-badge">Tracker</span>
+  </div>
+
+  <div class="user-badge">
+    <span class="role-tag" id="current-role-badge">INTERNAL (QUICKPLAY)</span>
+    <span class="user-email" id="current-user-email">alex@quickplay.com</span>
+  </div>
+
+  <!-- Active Account Persona Switcher -->
+  <div class="nav-group">
+    <span class="nav-label">Current Account / Session</span>
+    <select id="user-persona-select" onchange="switchUserPersona(this.value)" style="background:#1c2541; color:#fff; border:1px solid #3a86ff; padding:0.45rem; border-radius:6px; font-size:0.78rem; font-weight:600; width:100%; cursor:pointer;">
+      <option value="alex@quickplay.com">Quickplay Internal: Alex (Full Access)</option>
+      <option value="customer_a@acme.com">Acme Stakeholder: Alice (Streaming + DVR)</option>
+      <option value="customer_b@acme.com">Acme Tech: Bob (Streaming Only)</option>
+      <option value="executive@globex.com">Globex Media: Grace (OTT Multi-Screen)</option>
+    </select>
+  </div>
+
+  <!-- Internal Only: Company Work Item Tracker Switcher -->
+  <div class="nav-group" id="company-switcher-group">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.35rem;">
+      <span class="nav-label" style="margin:0;">Client Company</span>
+      <span style="font-size:0.65rem; background:#0284c7; color:#fff; padding:1px 5px; border-radius:4px; font-weight:700;">INTERNAL</span>
+    </div>
+    <select id="company-select" onchange="changeCompany(this.value)" style="background:#1c2541; color:#fff; border:1px solid #0ea5e9; padding:0.45rem; border-radius:6px; font-size:0.8rem; font-weight:600; width:100%; cursor:pointer;">
+      <!-- Populated dynamically via /api/organizations -->
+    </select>
+  </div>
+
+  <!-- Product Work Item Trackers (Filtered by Entitlements) -->
+  <div class="nav-group" id="product-switcher-group">
+    <span class="nav-label">Products & Platforms</span>
+    <div id="product-nav-list" style="display:flex; flex-direction:column; gap:0.25rem;">
+      <!-- Populated dynamically based on company and user product entitlements -->
+    </div>
+  </div>
+
+  <div class="nav-group">
+    <span class="nav-label">Workspace Views</span>
+    <div class="nav-item active" onclick="switchView('active', event)">
+      <span class="material-symbols-outlined">dataset</span> Active Work Items
+    </div>
+    <div class="nav-item" onclick="switchView('summary', event)" id="nav-item-summary">
+      <span class="material-symbols-outlined" style="color:#6fffe9;">auto_awesome</span> Daily Update Summary
+    </div>
+    <div class="nav-item" onclick="switchView('closed', event)">
+      <span class="material-symbols-outlined">archive</span> Completed / Archive
+    </div>
+    <div class="nav-item" onclick="switchView('entitlements', event)">
+      <span class="material-symbols-outlined">verified_user</span> Entitlements & Access
+    </div>
+  </div>
+</aside>
+
+<!-- Main Workspace -->
+<main>
+  <header>
+    <div>
+      <h1 id="view-title" style="font-size:1.35rem; font-weight:800;">Active Action Items</h1>
+      <p id="view-subtitle" style="font-size:0.8rem; color:var(--text-muted);">Organization: customer-acme</p>
+    </div>
+    <div class="header-actions">
+      <button class="btn" id="btn-refresh-summary" onclick="refreshDailySummary(true)" style="display:none; background:#eff6ff; color:#1d4ed8; border-color:#bfdbfe; font-weight:600;">
+        <span class="material-symbols-outlined" style="font-size:1.1rem;">sync</span> Refresh Summary
+      </button>
+      <button class="btn" id="btn-import" onclick="openImportModal()">
+        <span class="material-symbols-outlined">upload_file</span> Import Docs/Sheets
+      </button>
+      <button class="btn btn-primary" id="btn-new" onclick="openNewModal()">
+        <span class="material-symbols-outlined">add</span> New Action Item
+      </button>
+    </div>
+  </header>
+
+  <div class="content-area">
+    <!-- Key metrics row -->
+    <div class="metrics-grid" id="metrics-grid-row">
+      <div class="metric-card">
+        <span class="metric-title">Active Items</span>
+        <span class="metric-val" id="metric-active">--</span>
+      </div>
+      <div class="metric-card">
+        <span class="metric-title">Completed Work</span>
+        <span class="metric-val" id="metric-closed" style="color:var(--success)">--</span>
+      </div>
+      <div class="metric-card">
+        <span class="metric-title">Completion Rate</span>
+        <span class="metric-val" id="metric-rate" style="color:var(--primary)">--</span>
+      </div>
+    </div>
+
+    <!-- Daily Summary View Container -->
+    <div id="summary-view-container" style="display:none; flex-direction:column; gap:1.25rem;">
+      <!-- Populated dynamically via agent summary -->
+    </div>
+
+    <!-- Interactive Table Container -->
+    <div id="table-view-container">
+      <div class="section-header">
+        <h2 style="font-size:1.05rem; font-weight:700;">Work Item Pipeline</h2>
+        <span id="role-notice" style="font-size:0.8rem; color:var(--text-muted);"></span>
+      </div>
+
+      <table class="items-table">
+        <thead>
+          <tr>
+            <th style="width:20%;">Item / ID</th>
+            <th style="width:12%;">Subcategory / Space</th>
+            <th style="width:14%;">Status</th>
+            <th style="width:23%;">Milestones (Status & Date)</th>
+            <th style="width:12%;">Assignee & Target</th>
+            <th style="width:11%;">Reference Links</th>
+            <th style="width:8%; text-align:center;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="items-tbody">
+          <!-- Rendered dynamically -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<!-- Floating AI Assistant (Compact Dialog) -->
+<div class="chat-panel" id="chat-panel">
+  <div class="chat-header">
+    <div style="display:flex; align-items:center; gap:0.4rem;">
+      <span class="material-symbols-outlined" style="color:#6fffe9; font-size:1.05rem;">smart_toy</span>
+      <span>Action Tracker Agent</span>
+    </div>
+    <div class="chat-header-actions">
+      <button type="button" class="chat-header-btn" title="Close" onclick="closeChat()">
+        <span class="material-symbols-outlined" style="font-size:1.15rem;">close</span>
+      </button>
+    </div>
+  </div>
+  <div class="chat-body" id="chat-body">
+    <div style="background:#eef4ff; padding:0.6rem; border-radius:8px; font-size:0.78rem; line-height:1.4;">
+      👋 Ask me for daily update summaries, item-specific status changes, or approaching deadlines.
+    </div>
+    <div style="display:flex; flex-direction:column; gap:0.35rem; margin-top:0.4rem;">
+      <button type="button" class="btn" style="font-size:0.7rem; text-align:left; padding:0.3rem 0.5rem; background:#fff; border-color:#cbd5e1;" 
+              onclick="fillChat('What is the update summary for today?')">
+        ⚡ "What is the update summary for today?"
+      </button>
+      <button type="button" class="btn" style="font-size:0.7rem; text-align:left; padding:0.3rem 0.5rem; background:#fff; border-color:#cbd5e1;" 
+              onclick="fillChat('What are the updates about work item ACT-101 today?')">
+        ⚡ "What are the updates about work item ACT-101 today?"
+      </button>
+    </div>
+  </div>
+  <form class="chat-input-bar" onsubmit="sendChat(event)">
+    <input id="chat-input" placeholder="Ask agent..." autocomplete="off">
+    <button class="btn btn-primary" style="padding:0.35rem 0.65rem; font-size:0.8rem;">Ask</button>
+  </form>
+</div>
+
+<!-- Minimized Floating Agent Icon Trigger (Default) -->
+<button class="chat-fab-toggle" id="chat-fab" title="Quickplay AI Assistant" onclick="openChat()">
+  <span class="material-symbols-outlined" style="color:#fff; font-size:1.35rem;">smart_toy</span>
+</button>
+
+<!-- Modal: New Action Item -->
+<!-- Modal: Edit Action Item (All Fields) -->
+<div class="modal-overlay" id="modal-edit">
+  <div class="modal-box" style="width:680px; max-height:90vh; overflow-y:auto;">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <div class="modal-title" id="edit-modal-title">Edit Work Item</div>
+      <button class="btn" style="color:var(--danger); border-color:#fecdd3; background:#fff1f2;" onclick="deleteCurrentItem()">
+        <span class="material-symbols-outlined" style="font-size:1rem;">delete</span> Delete
+      </button>
+    </div>
+    <input type="hidden" id="edit-item-id">
+    
+    <div class="form-group">
+      <label>Title</label>
+      <input id="edit-title">
+    </div>
+    <div class="form-group">
+      <label>Description</label>
+      <textarea id="edit-description" rows="2" placeholder="Detailed description of the work item..."></textarea>
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem;">
+      <div class="form-group">
+        <label>Subcategory / Space</label>
+        <select id="edit-space">
+          <option value="identity-space">Identity & Authentication</option>
+          <option value="analytics-space">Media Analytics</option>
+          <option value="cdn-space">Cloud CDN & Edge Delivery</option>
+          <option value="general">General Deliverables</option>
+          <option value="imported">Imported Batch</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Status Lifecycle Stage</label>
+        <select id="edit-status">
+          <option value="ideation">Ideation</option>
+          <option value="in progress">In Progress</option>
+          <option value="in review">In Review</option>
+          <option value="QA">QA</option>
+          <option value="deploying to staging">Deploying to Staging</option>
+          <option value="deploying to production">Deploying to Production</option>
+          <option value="closing">Closing</option>
+          <option value="closed">Closed</option>
+          <option value="blocked">Blocked</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:0.75rem;">
+      <div class="form-group">
+        <label>Priority</label>
+        <select id="edit-priority">
+          <option value="low">Low</option>
+          <option value="medium">Medium</option>
+          <option value="high">High</option>
+          <option value="critical">Critical</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Assignee</label>
+        <input id="edit-assignee">
+      </div>
+      <div class="form-group">
+        <label>Delivery Target Date</label>
+        <input type="date" id="edit-date">
+      </div>
+    </div>
+
+    <!-- Subcategory Milestone Nodes -->
+    <div style="border-top:1px solid var(--border); padding-top:0.75rem;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+        <label style="font-weight:700; font-size:0.85rem;">Milestone Child Nodes</label>
+        <button type="button" class="btn" style="padding:0.25rem 0.6rem; font-size:0.75rem;" onclick="addEditNodeRow()">+ Add Node</button>
+      </div>
+      <div id="edit-nodes-list" style="display:flex; flex-direction:column; gap:0.5rem;">
+        <!-- Dynamic nodes -->
+      </div>
+    </div>
+
+    <!-- Jira & Docs Attachments -->
+    <div style="border-top:1px solid var(--border); padding-top:0.75rem;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+        <label style="font-weight:700; font-size:0.85rem;">Reference Attachments (Jira / Docs / Sheets)</label>
+        <button type="button" class="btn" style="padding:0.25rem 0.6rem; font-size:0.75rem;" onclick="addEditAttachmentRow()">+ Add Link</button>
+      </div>
+      <div id="edit-attachments-list" style="display:flex; flex-direction:column; gap:0.5rem;">
+        <!-- Dynamic attachments -->
+      </div>
+    </div>
+
+    <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:0.75rem; border-top:1px solid var(--border); padding-top:0.75rem;">
+      <button class="btn" onclick="closeModals()">Cancel</button>
+      <button class="btn btn-primary" onclick="submitEditItem()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: New Action Item -->
+<div class="modal-overlay" id="modal-new">
+  <div class="modal-box">
+    <div class="modal-title">Create Action Item</div>
+    <div class="form-group">
+      <label>Title</label>
+      <input id="new-title" placeholder="e.g. HLS Low-latency stream optimization">
+    </div>
+    <div class="form-group">
+      <label>Target Product</label>
+      <select id="new-product">
+        <!-- Populated dynamically when modal opens -->
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Subcategory / Space</label>
+      <select id="new-space">
+        <option value="identity-space">Identity & Authentication</option>
+        <option value="analytics-space">Media Analytics</option>
+        <option value="cdn-space">Cloud CDN & Edge Delivery</option>
+        <option value="playback-space">Player & Client SDKs</option>
+        <option value="streaming-space">Transcoding & Packaging</option>
+        <option value="linear-space">Linear Playout & SSAI</option>
+        <option value="general">General Deliverables</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Initial Lifecycle Stage</label>
+      <select id="new-status">
+        <option value="ideation">Ideation</option>
+        <option value="in progress">In Progress</option>
+        <option value="in review">In Review</option>
+        <option value="QA">QA</option>
+        <option value="deploying to staging">Deploying to Staging</option>
+        <option value="deploying to production">Deploying to Production</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Assignee (Internal)</label>
+      <input id="new-assignee" value="alex@quickplay.com">
+    </div>
+    <div class="form-group">
+      <label>Target Delivery Date</label>
+      <input type="date" id="new-date" value="2026-11-15">
+    </div>
+    <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:0.5rem;">
+      <button class="btn" onclick="closeModals()">Cancel</button>
+      <button class="btn btn-primary" onclick="submitNewItem()">Create Item</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Bulk Import -->
+<div class="modal-overlay" id="modal-import">
+  <div class="modal-box">
+    <div class="modal-title">Bulk Import (Sheets, Docs, CSV)</div>
+    <div class="form-group">
+      <label>Paste comma-separated rows (Title, Status, Priority, Assignee):</label>
+      <textarea id="import-text" rows="5" placeholder="DRM License Server Migration, in progress, high, sarah@quickplay.com&#10;Dynamic Ad Insertion Tuning, QA, medium, jordan@quickplay.com"></textarea>
+    </div>
+    <div style="display:flex; justify-content:flex-end; gap:0.5rem;">
+      <button class="btn" onclick="closeModals()">Cancel</button>
+      <button class="btn btn-primary" onclick="submitImport()">Import Items</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let currentView = 'active';
+let currentRole = 'internal'; 
+let currentOrg = 'customer-acme';
+let currentProduct = null; // null means 'All entitled products'
+let currentUser = 'alex@quickplay.com';
+
+let directoryCompanies = [];
+let directoryProfiles = {};
+let allItems = [];
+
+async function initDirectory() {
+  try {
+    const res = await fetch('/api/organizations');
+    const data = await res.json();
+    directoryCompanies = data.companies || [];
+    directoryProfiles = data.user_profiles || {};
+  } catch (err) {
+    console.error("Failed to load organizations:", err);
+  }
+  applyUserPermissions();
+}
+
+function applyUserPermissions() {
+  const profile = directoryProfiles[currentUser] || {
+    email: currentUser,
+    is_internal: true,
+    default_role: 'internal',
+    allowed_orgs: ['customer-acme'],
+    product_entitlements: {}
+  };
+
+  currentRole = profile.default_role || (profile.is_internal ? 'internal' : 'customer_view');
+
+  const badge = document.getElementById('current-role-badge');
+  const user = document.getElementById('current-user-email');
+  const companySwitcherGroup = document.getElementById('company-switcher-group');
+
+  user.textContent = profile.email;
+
+  if (profile.is_internal) {
+    badge.textContent = 'INTERNAL (QUICKPLAY)';
+    badge.style.color = '#6fffe9';
+    // Internal user sees the company selection dropdown
+    companySwitcherGroup.style.display = 'block';
+  } else {
+    // Customer accounts NEVER see or have access to the company switcher dropdown
+    companySwitcherGroup.style.display = 'none';
+
+    if (currentRole === 'customer_edit') {
+      badge.textContent = 'CUSTOMER (EDIT PRIVILEGE)';
+      badge.style.color = '#ffd166';
+    } else {
+      badge.textContent = 'CUSTOMER (READ ONLY)';
+      badge.style.color = '#94d2bd';
+    }
+
+    // Force organization to their strictly entitled company
+    if (profile.allowed_orgs && profile.allowed_orgs.length > 0) {
+      currentOrg = profile.allowed_orgs[0];
+    }
+  }
+
+  updateActionButtonVisibility();
+
+  // Populate company select dropdown
+  const companySelect = document.getElementById('company-select');
+  companySelect.innerHTML = '';
+  directoryCompanies.forEach(comp => {
+    const opt = document.createElement('option');
+    opt.value = comp.org_id;
+    opt.textContent = comp.name;
+    if (comp.org_id === currentOrg) opt.selected = true;
+    companySelect.appendChild(opt);
+  });
+
+  renderProductTabs();
+  loadData();
+}
+
+function updateActionButtonVisibility() {
+  const btnNew = document.getElementById('btn-new');
+  const btnImport = document.getElementById('btn-import');
+  if (!btnNew || !btnImport) return;
+
+  const profile = directoryProfiles[currentUser] || {};
+  const isInternal = profile.is_internal !== false;
+
+  if (currentView === 'summary' || currentView === 'entitlements') {
+    btnNew.style.display = 'none';
+    btnImport.style.display = 'none';
+  } else if (isInternal) {
+    btnNew.style.display = 'inline-flex';
+    btnImport.style.display = 'inline-flex';
+  } else if (currentRole === 'customer_edit') {
+    btnNew.style.display = 'inline-flex';
+    btnImport.style.display = 'none';
+  } else {
+    btnNew.style.display = 'none';
+    btnImport.style.display = 'none';
+  }
+}
+
+function renderProductTabs() {
+  const container = document.getElementById('product-nav-list');
+  container.innerHTML = '';
+
+  const company = directoryCompanies.find(c => c.org_id === currentOrg);
+  if (!company) return;
+
+  const profile = directoryProfiles[currentUser] || {};
+  let entitledProductIds = null; // null = all products
+
+  if (!profile.is_internal) {
+    const orgEntitlements = (profile.product_entitlements || {})[currentOrg] || [];
+    entitledProductIds = orgEntitlements;
+  }
+
+  // Filter products by entitlements
+  const visibleProducts = company.products.filter(p => {
+    if (entitledProductIds === null) return true;
+    return entitledProductIds.includes(p.product_id);
+  });
+
+  // "All Products" tab (only if user has access to > 1 product)
+  if (visibleProducts.length > 1) {
+    const allBtn = document.createElement('div');
+    allBtn.className = `nav-item ${currentProduct === null ? 'active' : ''}`;
+    allBtn.style.padding = '0.45rem 0.65rem';
+    allBtn.style.fontSize = '0.8rem';
+    allBtn.innerHTML = `<span class="material-symbols-outlined" style="font-size:1.05rem;">apps</span> All Products (${visibleProducts.length})`;
+    allBtn.onclick = () => { 
+      currentProduct = null; 
+      renderProductTabs(); 
+      loadData(); 
+    };
+    container.appendChild(allBtn);
+  } else if (visibleProducts.length === 1 && currentProduct === null) {
+    currentProduct = visibleProducts[0].product_id;
+  }
+
+  visibleProducts.forEach(prod => {
+    const prodBtn = document.createElement('div');
+    prodBtn.className = `nav-item ${currentProduct === prod.product_id ? 'active' : ''}`;
+    prodBtn.style.padding = '0.45rem 0.65rem';
+    prodBtn.style.fontSize = '0.8rem';
+    prodBtn.innerHTML = `<span class="material-symbols-outlined" style="font-size:1.05rem;">layers</span> ${prod.name}`;
+    prodBtn.title = prod.description;
+    prodBtn.onclick = () => { 
+      currentProduct = prod.product_id; 
+      renderProductTabs(); 
+      loadData(); 
+    };
+    container.appendChild(prodBtn);
+  });
+}
+
+function switchUserPersona(userEmail) {
+  currentUser = userEmail;
+  currentProduct = null;
+  applyUserPermissions();
+}
+
+function changeCompany(orgId) {
+  currentOrg = orgId;
+  currentProduct = null;
+  renderProductTabs();
+  loadData();
+}
+
+async function loadData() {
+  let url = `/api/items?org_id=${currentOrg}&include_closed=true`;
+  if (currentProduct) {
+    url += `&product_id=${currentProduct}`;
+  }
+  const res = await fetch(url);
+  const data = await res.json();
+  allItems = data.items || [];
+
+  const company = directoryCompanies.find(c => c.org_id === currentOrg);
+  const companyName = company ? company.name : currentOrg;
+  const productObj = company ? company.products.find(p => p.product_id === currentProduct) : null;
+  const productText = productObj ? ` · ${productObj.name}` : (currentProduct ? '' : ' · All Products');
+  document.getElementById('view-subtitle').textContent = `Company: ${companyName} (${currentOrg})${productText}`;
+
+  renderView();
+}
+
+function switchView(view, evt) {
+  currentView = view;
+  document.querySelectorAll('#sidebar .nav-item, aside .nav-item').forEach(el => {
+    if (!el.parentElement || el.parentElement.id !== 'product-nav-list') {
+      el.classList.remove('active');
+    }
+  });
+  if (evt && evt.currentTarget) {
+    evt.currentTarget.classList.add('active');
+  }
+  renderView();
+}
+
+function renderView() {
+  const tbody = document.getElementById('items-tbody');
+  tbody.innerHTML = '';
+
+  const activeCount = allItems.filter(i => i.status !== 'closed').length;
+  const closedCount = allItems.filter(i => i.status === 'closed').length;
+  const total = allItems.length;
+
+  document.getElementById('metric-active').textContent = activeCount;
+  document.getElementById('metric-closed').textContent = closedCount;
+  document.getElementById('metric-rate').textContent = total ? `${Math.round((closedCount/total)*100)}%` : '0%';
+
+  const tableViewContainer = document.getElementById('table-view-container');
+  const summaryViewContainer = document.getElementById('summary-view-container');
+  const btnRefreshSummary = document.getElementById('btn-refresh-summary');
+  const btnNew = document.getElementById('btn-new');
+  const btnImport = document.getElementById('btn-import');
+
+  if (currentView === 'summary') {
+    document.getElementById('view-title').textContent = 'Daily Update Summary (Agent Generated)';
+    tableViewContainer.style.display = 'none';
+    summaryViewContainer.style.display = 'flex';
+    btnRefreshSummary.style.display = 'inline-flex';
+    updateActionButtonVisibility();
+    loadDailySummaryView();
+    return;
+  } else {
+    tableViewContainer.style.display = 'block';
+    summaryViewContainer.style.display = 'none';
+    btnRefreshSummary.style.display = 'none';
+    updateActionButtonVisibility();
+  }
+
+  let filtered = allItems;
+  if (currentView === 'active') {
+    filtered = allItems.filter(i => i.status !== 'closed');
+    document.getElementById('view-title').textContent = 'Active Action Items';
+  } else if (currentView === 'closed') {
+    filtered = allItems.filter(i => i.status === 'closed');
+    document.getElementById('view-title').textContent = 'Completed & Archived Items';
+  } else if (currentView === 'entitlements') {
+    document.getElementById('view-title').textContent = 'Organization Entitlements & Product Access Rules';
+    const company = directoryCompanies.find(c => c.org_id === currentOrg);
+    const companyName = company ? company.name : currentOrg;
+
+    let profilesHtml = Object.values(directoryProfiles).map(p => {
+      const isInternal = p.is_internal;
+      const orgEnts = p.allowed_orgs || [];
+      const prodEnts = p.product_entitlements ? Object.entries(p.product_entitlements).map(([org, prods]) => `${org}: [${prods.join(', ')}]`).join('; ') : 'All Products';
+
+      return `
+        <tr style="border-bottom:1px solid var(--border);">
+          <td style="padding:0.75rem;"><strong>${p.name}</strong><br><span style="font-size:0.75rem; color:var(--text-muted);">${p.email}</span></td>
+          <td style="padding:0.75rem;"><span class="role-tag" style="background:${isInternal ? '#0369a1' : '#f59e0b'}; color:#fff; font-size:0.7rem; padding:2px 6px; border-radius:4px;">${isInternal ? 'Internal Quickplay' : p.default_role}</span></td>
+          <td style="padding:0.75rem; font-size:0.8rem;">${isInternal ? '<em>All Client Companies</em>' : orgEnts.join(', ')}</td>
+          <td style="padding:0.75rem; font-size:0.8rem;">${isInternal ? '<em>Full Access to All Products</em>' : (prodEnts || 'None')}</td>
+        </tr>
+      `;
+    }).join('');
+
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="6" style="padding:1.5rem; background:#fff;">
+          <div style="background:#f0f9ff; border:1px solid #bae6fd; border-radius:8px; padding:1rem; margin-bottom:1.5rem;">
+            <h4 style="color:#0369a1; margin-bottom:0.35rem; display:flex; align-items:center; gap:0.4rem;">
+              <span class="material-symbols-outlined">shield</span> Multi-Tenant Company & Product Entitlement Policy
+            </h4>
+            <ul style="font-size:0.82rem; color:#0c4a6e; line-height:1.5; padding-left:1.2rem; margin:0;">
+              <li><strong>Quickplay Internal Users:</strong> Have universal company switcher in the sidebar to review and manage any client's work item tracker and all products.</li>
+              <li><strong>Customer Accounts:</strong> Never see the company selector and are hard-restricted to their own company workspace.</li>
+              <li><strong>Product Granularity:</strong> Customer users only see the product tabs they are entitled to (e.g. Account A can access Video Streaming & Cloud DVR; Account B only accesses Video Streaming).</li>
+            </ul>
+          </div>
+
+          <h4 style="margin-bottom:0.8rem;">Active Role & Entitlement Directory</h4>
+          <table style="width:100%; border-collapse:collapse; margin-bottom:1.5rem; font-size:0.85rem;">
+            <thead>
+              <tr style="background:#f8fafc; text-align:left; border-bottom:2px solid var(--border);">
+                <th style="padding:0.6rem 0.75rem;">User / Account</th>
+                <th style="padding:0.6rem 0.75rem;">Access Tier</th>
+                <th style="padding:0.6rem 0.75rem;">Company Access</th>
+                <th style="padding:0.6rem 0.75rem;">Product Entitlements</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${profilesHtml}
+            </tbody>
+          </table>
+
+          <h4 style="margin-bottom:0.5rem;">Generate Client Onboarding Link</h4>
+          <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:0.8rem;">Generate scoped Google OAuth invite link for ${companyName}.</p>
+          <div style="display:flex; gap:0.5rem; max-width:650px;">
+            <input value="https://quickplay.app/onboard?org=${currentOrg}&role=customer_view&auth=google" readonly style="flex:1; padding:0.5rem; border:1px solid var(--border); border-radius:6px; font-size:0.8rem;">
+            <button class="btn btn-primary" onclick="alert('Client invite link for ${companyName} copied!')">Copy Invite Link</button>
+          </div>
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  filtered.forEach(item => {
+    const tr = document.createElement('tr');
+    const canEdit = currentRole === 'internal' || currentRole === 'customer_edit';
+
+    // Milestone nodes with direct in-line editing (title & date) and status selectors
+    const nodesHtml = (item.nodes || []).map((n, nIdx) => {
+      let nBg = '#e0f2fe', nColor = '#0369a1';
+      if (n.status === 'closed') { nBg = '#dcfce7'; nColor = '#15803d'; }
+      else if (n.status === 'QA') { nBg = '#fef3c7'; nColor = '#b45309'; }
+      else if (n.status.includes('staging')) { nBg = '#f3e8ff'; nColor = '#6b21a8'; }
+
+      const dateVal = n.target_date || '';
+
+      return `
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:0.4rem; background:#f8fafc; border:1px solid var(--border); border-radius:6px; padding:0.25rem 0.45rem; font-size:0.75rem; margin-bottom:0.3rem;">
+          <div style="flex:1; display:flex; align-items:center; gap:0.35rem; min-width:0; overflow:hidden;">
+            <span class="${canEdit ? 'editable-field' : ''}" 
+                  style="font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"
+                  ${canEdit ? `onclick="makeEditableNodeText(this, '${item.item_id}', ${nIdx})"` : ''}
+                  title="${canEdit ? 'Click to edit milestone name' : ''}">
+              ${n.title}
+            </span>
+            <span class="${canEdit ? 'editable-field' : ''}" 
+                  style="display:inline-flex; align-items:center; gap:2px; font-size:0.7rem; color:var(--text-muted); background:#f1f5f9; padding:1px 4px; border-radius:4px; flex-shrink:0;"
+                  ${canEdit ? `onclick="makeEditableNodeDate(this, '${item.item_id}', ${nIdx})"` : ''}
+                  title="${canEdit ? 'Click to update milestone date' : ''}">
+              <span class="material-symbols-outlined" style="font-size:0.75rem; color:#64748b;">calendar_today</span>
+              <span>${dateVal || 'Set date'}</span>
+            </span>
+          </div>
+          ${canEdit ? `
+            <select style="font-size:0.7rem; padding:1px 4px; border-radius:4px; border:1px solid ${nBg}; background:${nBg}; color:${nColor}; font-weight:700; cursor:pointer; flex-shrink:0;"
+                    onchange="changeNodeStatus('${item.item_id}', ${nIdx}, this.value)">
+              <option value="in progress" ${n.status === 'in progress' ? 'selected' : ''}>In Progress</option>
+              <option value="in review" ${n.status === 'in review' ? 'selected' : ''}>In Review</option>
+              <option value="QA" ${n.status === 'QA' ? 'selected' : ''}>QA</option>
+              <option value="deploying to staging" ${n.status === 'deploying to staging' ? 'selected' : ''}>Staging</option>
+              <option value="closed" ${n.status === 'closed' ? 'selected' : ''}>Closed</option>
+            </select>
+          ` : `
+            <span style="font-size:0.7rem; padding:1px 4px; border-radius:4px; background:${nBg}; color:${nColor}; font-weight:700; flex-shrink:0;">${n.status}</span>
+          `}
+        </div>
+      `;
+    }).join('') || '<span style="color:#94a3b8; font-size:0.78rem;">No milestones</span>';
+
+    // Reference links (Jira, Docs, Sheets) visible directly in the table
+    const refLinksHtml = (item.attachments || []).map(att => {
+      let icon = 'link';
+      let iconColor = '#3b82f6';
+      if (att.link_type === 'jira') { icon = 'confirmation_number'; iconColor = '#0052cc'; }
+      else if (att.link_type === 'doc') { icon = 'description'; iconColor = '#2563eb'; }
+      else if (att.link_type === 'sheet') { icon = 'table_chart'; iconColor = '#16a34a'; }
+
+      return `
+        <a href="${att.url || '#'}" target="_blank" rel="noopener noreferrer" 
+           style="display:inline-flex; align-items:center; gap:0.25rem; background:#f1f5f9; border:1px solid #e2e8f0; color:#1e293b; padding:0.15rem 0.45rem; border-radius:6px; font-size:0.72rem; text-decoration:none; margin:2px 2px 2px 0;"
+           title="${att.url}">
+          <span class="material-symbols-outlined" style="font-size:0.85rem; color:${iconColor};">${icon}</span>
+          <span>${att.label || 'Link'}</span>
+        </a>
+      `;
+    }).join('') || '<span style="color:#94a3b8; font-size:0.75rem;">None</span>';
+
+    // Status styling for the direct selector
+    let statusColor = '#0369a1';
+    let statusBg = '#e0f2fe';
+    if (item.status === 'closed') { statusColor = '#15803d'; statusBg = '#dcfce7'; }
+    else if (item.status === 'QA') { statusColor = '#b45309'; statusBg = '#fef3c7'; }
+    else if (item.status.includes('staging')) { statusColor = '#6b21a8'; statusBg = '#f3e8ff'; }
+
+    tr.innerHTML = `
+      <td>
+        <div class="${canEdit ? 'editable-field' : ''}" 
+             ${canEdit ? `onclick="makeEditableText(this, '${item.item_id}', 'title')"` : ''}
+             title="${canEdit ? 'Click to edit title' : ''}">
+          <strong style="color:var(--text-main); font-size:0.88rem;">${item.title}</strong>
+        </div>
+        <div style="display:flex; align-items:center; gap:0.4rem; margin-top:2px;">
+          <span style="font-size:0.72rem; color:var(--text-muted);">${item.item_id}</span>
+          ${item.product_name ? `<span style="font-size:0.65rem; background:#e2e8f0; color:#475569; padding:1px 5px; border-radius:4px; font-weight:600;">${item.product_name}</span>` : ''}
+        </div>
+      </td>
+
+      <td>
+        <span class="${canEdit ? 'editable-field' : ''}" 
+              style="font-weight:700; color:#3b82f6; font-size:0.82rem;"
+              ${canEdit ? `onclick="makeEditableSelect(this, '${item.item_id}', 'space_id', '${item.space_id || 'general'}', ['identity-space', 'analytics-space', 'cdn-space', 'general', 'imported'])"` : ''}
+              title="${canEdit ? 'Click to change space' : ''}">
+          ${item.space_id || 'general'}
+        </span>
+      </td>
+
+      <td>
+        ${canEdit ? `
+          <select class="inline-status-select" 
+                  style="background:${statusBg}; color:${statusColor}; border-color:${statusBg}; font-size:0.75rem; padding:0.25rem 0.5rem;"
+                  onchange="changeStatus('${item.item_id}', this.value)">
+            <option value="ideation" ${item.status === 'ideation' ? 'selected' : ''}>Ideation</option>
+            <option value="in progress" ${item.status === 'in progress' ? 'selected' : ''}>In Progress</option>
+            <option value="in review" ${item.status === 'in review' ? 'selected' : ''}>In Review</option>
+            <option value="QA" ${item.status === 'QA' ? 'selected' : ''}>QA</option>
+            <option value="deploying to staging" ${item.status === 'deploying to staging' ? 'selected' : ''}>Deploying Staging</option>
+            <option value="deploying to production" ${item.status === 'deploying to production' ? 'selected' : ''}>Deploying Prod</option>
+            <option value="closing" ${item.status === 'closing' ? 'selected' : ''}>Closing</option>
+            <option value="closed" ${item.status === 'closed' ? 'selected' : ''}>Closed</option>
+            <option value="blocked" ${item.status === 'blocked' ? 'selected' : ''}>Blocked</option>
+          </select>
+        ` : `
+          <span class="badge" style="background:${statusBg}; color:${statusColor}; font-weight:700;">${item.status}</span>
+        `}
+      </td>
+
+      <td>
+        <div>
+          ${nodesHtml}
+          ${canEdit ? `<button class="btn" style="padding:1px 6px; font-size:0.7rem; height:20px; width:100%; border-style:dashed;" title="Add Milestone Node" onclick="promptAddNode('${item.item_id}')">+ Add Milestone</button>` : ''}
+        </div>
+      </td>
+
+      <td>
+        <div style="display:flex; flex-direction:column; gap:2px;">
+          <span class="${canEdit ? 'editable-field' : ''}" 
+                style="font-size:0.8rem; font-weight:600;"
+                ${canEdit ? `onclick="makeEditableText(this, '${item.item_id}', 'assignee')"` : ''}
+                title="${canEdit ? 'Click to edit assignee' : ''}">
+            👤 ${currentRole === 'customer_view' ? 'Quickplay Team' : (item.assignee || 'Unassigned')}
+          </span>
+          <span class="${canEdit ? 'editable-field' : ''}" 
+                style="display:inline-flex; align-items:center; gap:3px; font-size:0.75rem; color:var(--text-muted);"
+                ${canEdit ? `onclick="makeEditableDate(this, '${item.item_id}', 'delivery_date', '${item.delivery_date || ''}')"` : ''}
+                title="${canEdit ? 'Click to edit target date' : ''}">
+            <span class="material-symbols-outlined" style="font-size:0.8rem; color:#64748b;">calendar_today</span>
+            <span>${item.delivery_date || '--'}</span>
+          </span>
+        </div>
+      </td>
+
+      <td>
+        <div style="display:flex; flex-wrap:wrap; align-items:center;">
+          ${refLinksHtml}
+        </div>
+      </td>
+
+      <td style="text-align:center;">
+        ${canEdit ? `
+          <button class="btn btn-secondary" 
+                  style="padding:0.25rem 0.5rem; font-size:0.75rem; display:inline-flex; align-items:center; gap:0.2rem;" 
+                  title="Full Edit Modal" 
+                  onclick="openEditModal('${item.item_id}')">
+            <span class="material-symbols-outlined" style="font-size:0.85rem;">edit</span>
+            <span>Edit</span>
+          </button>
+        ` : `
+          <button class="btn btn-secondary" 
+                  style="padding:0.25rem 0.5rem; font-size:0.75rem; display:inline-flex; align-items:center; gap:0.2rem;" 
+                  title="View Item Details" 
+                  onclick="openEditModal('${item.item_id}')">
+            <span class="material-symbols-outlined" style="font-size:0.85rem;">visibility</span>
+            <span>View</span>
+          </button>
+        `}
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="7" style="text-align:center; padding:3rem; color:var(--text-muted);">
+          <span class="material-symbols-outlined" style="font-size:2.5rem; color:#94a3b8; display:block; margin-bottom:0.5rem;">inbox</span>
+          <strong style="display:block; font-size:0.95rem; color:var(--text-main); margin-bottom:0.25rem;">No items found in this view</strong>
+          <span style="font-size:0.8rem;">${currentView === 'closed' ? 'No items have been marked as closed or archived yet.' : 'There are currently no active action items.'}</span>
+        </td>
+      </tr>
+    `;
+  }
+}
+
+async function refreshDailySummary(forceRefresh = false) {
+  await loadDailySummaryView(forceRefresh);
+}
+
+async function loadDailySummaryView(forceRefresh = false) {
+  const container = document.getElementById('summary-view-container');
+  container.innerHTML = `
+    <div style="background:#fff; border:1px solid var(--border); border-radius:10px; padding:2rem; text-align:center;">
+      <span class="material-symbols-outlined" style="font-size:2.5rem; color:#3b82f6; animation:spin 1.5s linear infinite; display:inline-block;">sync</span>
+      <h3 style="margin-top:0.75rem; font-size:1.05rem;">Generating Daily Update Summary...</h3>
+      <p style="color:var(--text-muted); font-size:0.82rem; margin-top:0.25rem;">
+        The Quickplay Agent is assembling cross-item status updates, milestone changes, and audit logs for your active view.
+      </p>
+    </div>
+  `;
+
+  try {
+    let url = `/api/daily-summary?org_id=${encodeURIComponent(currentOrg)}&user_email=${encodeURIComponent(currentUser)}`;
+    if (currentProduct) {
+      url += `&product_id=${encodeURIComponent(currentProduct)}`;
+    }
+    const res = await fetch(url);
+    const data = await res.json();
+
+    if (data.error) {
+      container.innerHTML = `
+        <div style="background:#fef2f2; border:1px solid #fecdd3; border-radius:10px; padding:1.5rem; color:#991b1b;">
+          <h4 style="display:flex; align-items:center; gap:0.4rem; margin-bottom:0.4rem;">
+            <span class="material-symbols-outlined">gpp_bad</span> Access Restricted
+          </h4>
+          <p style="font-size:0.85rem;">${data.error}</p>
+        </div>
+      `;
+      return;
+    }
+
+    const company = directoryCompanies.find(c => c.org_id === currentOrg);
+    const compName = company ? company.name : currentOrg;
+    const prodObj = company ? company.products.find(p => p.product_id === currentProduct) : null;
+    const prodTitle = prodObj ? prodObj.name : (currentProduct ? currentProduct : 'All Entitled Products');
+
+    const updatedItems = data.updated_items || [];
+    const activeItems = data.all_active_items_overview || [];
+    const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    let updatesCardsHtml = '';
+    if (updatedItems.length === 0) {
+      updatesCardsHtml = `
+        <div style="background:#f8fafc; border:1px dashed #cbd5e1; border-radius:8px; padding:1.25rem; text-align:center; color:var(--text-muted); font-size:0.85rem;">
+          <span class="material-symbols-outlined" style="color:#94a3b8; font-size:1.8rem; display:block; margin-bottom:0.3rem;">event_available</span>
+          No status transitions or edits were recorded yet for <strong>${data.target_date}</strong> under this view.<br>
+          <span style="font-size:0.75rem;">Make edits or changes in the pipeline table and hit "Refresh Summary" to capture newly committed updates.</span>
+        </div>
+      `;
+    } else {
+      updatesCardsHtml = updatedItems.map(item => {
+        const histRows = (item.updates || []).map(u => `
+          <div style="background:#fff; border-left:3px solid #3b82f6; border-radius:4px; padding:0.4rem 0.65rem; margin-top:0.35rem; font-size:0.78rem;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <strong>Field: ${u.field}</strong>
+              <span style="color:#64748b; font-size:0.72rem;">${new Date(u.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>
+            </div>
+            ${u.old_value ? `<span style="color:#ef4444; text-decoration:line-through; font-size:0.75rem;">${u.old_value}</span> ➔ ` : ''}
+            <span style="color:#10b981; font-weight:600; font-size:0.75rem;">${u.new_value}</span>
+            ${u.note ? `<div style="color:#475569; margin-top:0.2rem; font-style:italic;">Note: "${u.note}"</div>` : ''}
+          </div>
+        `).join('');
+
+        return `
+          <div style="background:#fff; border:1px solid var(--border); border-radius:8px; padding:1rem; box-shadow:0 1px 3px rgba(0,0,0,0.03);">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:0.4rem;">
+              <div>
+                <span style="font-size:0.75rem; font-weight:700; color:#3b82f6;">${item.item_id}</span>
+                <h4 style="font-size:0.95rem; font-weight:700; margin:0.1rem 0 0.2rem 0;">${item.title}</h4>
+                <div style="display:flex; gap:0.4rem; align-items:center;">
+                  <span style="font-size:0.68rem; background:#f1f5f9; color:#475569; padding:1px 6px; border-radius:4px; font-weight:600;">${item.product_name || 'Product'}</span>
+                  <span style="font-size:0.68rem; background:#fef3c7; color:#b45309; padding:1px 6px; border-radius:4px; font-weight:600; text-transform:uppercase;">Priority: ${item.priority || 'medium'}</span>
+                </div>
+              </div>
+              <span style="font-size:0.75rem; background:#e0f2fe; color:#0369a1; padding:3px 8px; border-radius:6px; font-weight:700;">Status: ${item.current_status}</span>
+            </div>
+            <div style="margin-top:0.5rem;">
+              <span style="font-size:0.72rem; font-weight:700; color:#64748b; text-transform:uppercase;">Today's Activity Log:</span>
+              ${histRows}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    const activeOverviewCards = activeItems.map(a => `
+      <div style="background:#fff; border:1px solid var(--border); border-radius:6px; padding:0.6rem 0.8rem; display:flex; justify-content:space-between; align-items:center; font-size:0.8rem;">
+        <div>
+          <strong style="color:var(--text-main);">${a.title}</strong>
+          <div style="font-size:0.72rem; color:var(--text-muted);">${a.item_id} · ${a.product_name}</div>
+        </div>
+        <div style="display:flex; align-items:center; gap:0.75rem;">
+          <span style="font-size:0.75rem; color:#64748b; display:flex; align-items:center; gap:0.25rem;">
+            <span class="material-symbols-outlined" style="font-size:0.85rem;">calendar_today</span>
+            ${a.delivery_date || 'No Date'}
+          </span>
+          <span style="font-size:0.72rem; font-weight:700; padding:2px 7px; border-radius:4px; background:#f1f5f9; color:#334155;">${a.status}</span>
+        </div>
+      </div>
+    `).join('');
+
+    container.innerHTML = `
+      <!-- Summary Header Banner -->
+      <div style="background:linear-gradient(135deg, #1e293b, #0f172a); border-radius:10px; padding:1.25rem 1.5rem; color:#fff; display:flex; justify-content:space-between; align-items:center; box-shadow:0 4px 12px rgba(0,0,0,0.1);">
+        <div>
+          <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.25rem;">
+            <span class="material-symbols-outlined" style="color:#6fffe9; font-size:1.35rem;">auto_awesome</span>
+            <h3 style="font-size:1.15rem; font-weight:800; margin:0;">Executive Daily Digest</h3>
+            <span style="background:rgba(255,255,255,0.15); font-size:0.7rem; padding:2px 8px; border-radius:12px; font-weight:600;">Agent Verified</span>
+          </div>
+          <p style="font-size:0.82rem; color:#94a3b8; margin:0;">
+            Target Date: <strong>${data.target_date}</strong> · Scoped to: <strong>${compName}</strong> (${prodTitle}) · Last Generated at ${nowTime}
+          </p>
+        </div>
+        <button class="btn" onclick="refreshDailySummary(true)" style="background:rgba(255,255,255,0.12); color:#fff; border:1px solid rgba(255,255,255,0.25); font-size:0.8rem; display:flex; align-items:center; gap:0.35rem; cursor:pointer;">
+          <span class="material-symbols-outlined" style="font-size:1rem;">sync</span> Refresh Summary
+        </button>
+      </div>
+
+      <!-- Digest Metrics Overview Cards -->
+      <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:1rem;">
+        <div class="metric-card">
+          <span class="metric-title">Total Entitled Items</span>
+          <span class="metric-val" style="color:#3b82f6;">${data.total_entitled_items || 0}</span>
+        </div>
+        <div class="metric-card">
+          <span class="metric-title">Items Updated Today</span>
+          <span class="metric-val" style="color:#10b981;">${data.items_updated_today_count || 0}</span>
+        </div>
+        <div class="metric-card">
+          <span class="metric-title">Total Modifications Logged</span>
+          <span class="metric-val" style="color:#8b5cf6;">${data.total_updates_count || 0}</span>
+        </div>
+        <div class="metric-card">
+          <span class="metric-title">Active Items In Pipeline</span>
+          <span class="metric-val" style="color:#f59e0b;">${activeItems.length}</span>
+        </div>
+      </div>
+
+      <!-- Section: Detailed Updates Recorded Today -->
+      <div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
+          <h3 style="font-size:1rem; font-weight:800; display:flex; align-items:center; gap:0.35rem; margin:0;">
+            <span class="material-symbols-outlined" style="color:#10b981; font-size:1.15rem;">update</span>
+            Today's Item Updates & Lifecycle Progression (${data.items_updated_today_count || 0})
+          </h3>
+          <span style="font-size:0.75rem; color:var(--text-muted);">Audited by Agent Tooling</span>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:0.75rem;">
+          ${updatesCardsHtml}
+        </div>
+      </div>
+
+      <!-- Section: Active Items Status Snapshot -->
+      <div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
+          <h3 style="font-size:1rem; font-weight:800; display:flex; align-items:center; gap:0.35rem; margin:0;">
+            <span class="material-symbols-outlined" style="color:#3b82f6; font-size:1.15rem;">format_list_bulleted</span>
+            Active Work Items Snapshot
+          </h3>
+          <span style="font-size:0.75rem; color:var(--text-muted);">${activeItems.length} in pipeline</span>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:0.45rem;">
+          ${activeOverviewCards}
+        </div>
+      </div>
+    `;
+  } catch (err) {
+    container.innerHTML = `
+      <div style="background:#fef2f2; border:1px solid #fecdd3; border-radius:10px; padding:1.5rem; color:#991b1b;">
+        <h4 style="margin-bottom:0.4rem;">Error generating daily summary</h4>
+        <p style="font-size:0.85rem;">${err.message}</p>
+      </div>
+    `;
+  }
+}
+
+function openEditModal(itemId) {
+  const item = allItems.find(i => i.item_id === itemId);
+  if (!item) return;
+
+  document.getElementById('edit-modal-title').textContent = `Edit Work Item: ${item.item_id}`;
+  document.getElementById('edit-item-id').value = item.item_id;
+  document.getElementById('edit-title').value = item.title || '';
+  document.getElementById('edit-description').value = item.description || '';
+  document.getElementById('edit-space').value = item.space_id || 'general';
+  document.getElementById('edit-status').value = item.status || 'in progress';
+  document.getElementById('edit-priority').value = item.priority || 'medium';
+  document.getElementById('edit-assignee').value = item.assignee || '';
+  document.getElementById('edit-date').value = item.delivery_date || '';
+
+  // Render milestone nodes
+  const nodesContainer = document.getElementById('edit-nodes-list');
+  nodesContainer.innerHTML = '';
+  (item.nodes || []).forEach(node => addEditNodeRow(node));
+
+  // Render attachments
+  const attsContainer = document.getElementById('edit-attachments-list');
+  attsContainer.innerHTML = '';
+  (item.attachments || []).forEach(att => addEditAttachmentRow(att));
+
+  document.getElementById('modal-edit').style.display = 'flex';
+}
+
+function addEditNodeRow(node = {}) {
+  const container = document.getElementById('edit-nodes-list');
+  const div = document.createElement('div');
+  div.className = 'edit-node-row';
+  div.style.cssText = 'display:grid; grid-template-columns: 2fr 1fr 1fr auto; gap:0.4rem; align-items:center;';
+  div.innerHTML = `
+    <input class="node-title" value="${node.title || ''}" placeholder="Milestone task title" style="padding:0.4rem; font-size:0.8rem; border:1px solid var(--border); border-radius:6px;">
+    <select class="node-status" style="padding:0.4rem; font-size:0.8rem; border:1px solid var(--border); border-radius:6px;">
+      <option value="in progress" ${node.status === 'in progress' ? 'selected' : ''}>In Progress</option>
+      <option value="in review" ${node.status === 'in review' ? 'selected' : ''}>In Review</option>
+      <option value="QA" ${node.status === 'QA' ? 'selected' : ''}>QA</option>
+      <option value="deploying to staging" ${node.status === 'deploying to staging' ? 'selected' : ''}>Staging</option>
+      <option value="closed" ${node.status === 'closed' ? 'selected' : ''}>Closed</option>
+    </select>
+    <input type="date" class="node-date" value="${node.target_date || ''}" style="padding:0.4rem; font-size:0.8rem; border:1px solid var(--border); border-radius:6px;">
+    <button type="button" class="btn" style="padding:0.3rem 0.5rem; color:var(--danger);" onclick="this.parentElement.remove()">✕</button>
+  `;
+  container.appendChild(div);
+}
+
+function addEditAttachmentRow(att = {}) {
+  const container = document.getElementById('edit-attachments-list');
+  const div = document.createElement('div');
+  div.className = 'edit-att-row';
+  div.style.cssText = 'display:grid; grid-template-columns: 1fr 1fr 2fr auto; gap:0.4rem; align-items:center;';
+  div.innerHTML = `
+    <select class="att-type" style="padding:0.4rem; font-size:0.8rem; border:1px solid var(--border); border-radius:6px;">
+      <option value="jira" ${att.link_type === 'jira' ? 'selected' : ''}>Jira</option>
+      <option value="doc" ${att.link_type === 'doc' ? 'selected' : ''}>Google Doc</option>
+      <option value="sheet" ${att.link_type === 'sheet' ? 'selected' : ''}>Google Sheet</option>
+      <option value="link" ${att.link_type === 'link' ? 'selected' : ''}>Web Link</option>
+    </select>
+    <input class="att-label" value="${att.label || ''}" placeholder="Label (e.g. Spec Doc)" style="padding:0.4rem; font-size:0.8rem; border:1px solid var(--border); border-radius:6px;">
+    <input class="att-url" value="${att.url || ''}" placeholder="https://..." style="padding:0.4rem; font-size:0.8rem; border:1px solid var(--border); border-radius:6px;">
+    <button type="button" class="btn" style="padding:0.3rem 0.5rem; color:var(--danger);" onclick="this.parentElement.remove()">✕</button>
+  `;
+  container.appendChild(div);
+}
+
+async function submitEditItem() {
+  const itemId = document.getElementById('edit-item-id').value;
+  const title = document.getElementById('edit-title').value;
+  const description = document.getElementById('edit-description').value;
+  const space_id = document.getElementById('edit-space').value;
+  const status = document.getElementById('edit-status').value;
+  const priority = document.getElementById('edit-priority').value;
+  const assignee = document.getElementById('edit-assignee').value;
+  const delivery_date = document.getElementById('edit-date').value;
+
+  // Extract nodes
+  const nodes = [];
+  document.querySelectorAll('.edit-node-row').forEach((row, idx) => {
+    const t = row.querySelector('.node-title').value;
+    if (t) {
+      nodes.push({
+        node_id: `node-${idx + 1}`,
+        title: t,
+        status: row.querySelector('.node-status').value,
+        target_date: row.querySelector('.node-date').value,
+      });
+    }
+  });
+
+  // Extract attachments
+  const attachments = [];
+  document.querySelectorAll('.edit-att-row').forEach(row => {
+    const url = row.querySelector('.att-url').value;
+    if (url) {
+      attachments.push({
+        link_type: row.querySelector('.att-type').value,
+        label: row.querySelector('.att-label').value || 'Reference',
+        url: url,
+      });
+    }
+  });
+
+  const payload = {
+    title,
+    description,
+    space_id,
+    status,
+    priority,
+    assignee,
+    delivery_date,
+    nodes,
+    attachments,
+    updated_by: currentRole === 'internal' ? 'alex@quickplay.com' : 'stakeholder@acme.com',
+    note: 'Comprehensive edit via workspace modal',
+  };
+
+  await fetch(`/api/items/${itemId}/update`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  closeModals();
+  loadData();
+}
+
+async function deleteCurrentItem() {
+  const itemId = document.getElementById('edit-item-id').value;
+  if (!confirm(`Are you sure you want to permanently delete ${itemId}?`)) return;
+
+  await fetch(`/api/items/${itemId}`, { method: 'DELETE' });
+  closeModals();
+  loadData();
+}
+
+async function changeStatus(itemId, newStatus) {
+  if (!newStatus) return;
+  await fetch(`/api/items/${itemId}/update`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: newStatus, updated_by: currentRole === 'internal' ? 'alex@quickplay.com' : 'stakeholder@acme.com', note: 'Status changed directly in pipeline table' })
+  });
+  loadData();
+}
+
+function makeEditableText(element, itemId, field) {
+  if (element.querySelector('input')) return;
+  const item = allItems.find(i => i.item_id === itemId);
+  const currentValue = item ? (item[field] || '') : element.innerText.trim();
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'inline-edit-input';
+  input.value = currentValue;
+  
+  const save = async () => {
+    const val = input.value.trim();
+    if (val && val !== currentValue) {
+      await fetch(`/api/items/${itemId}/update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [field]: val, updated_by: currentRole === 'internal' ? 'alex@quickplay.com' : 'stakeholder@acme.com', note: `Updated ${field} inline` })
+      });
+      loadData();
+    } else {
+      loadData();
+    }
+  };
+
+  input.addEventListener('blur', save);
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') input.blur();
+    if (e.key === 'Escape') { input.removeEventListener('blur', save); loadData(); }
+  });
+
+  element.innerHTML = '';
+  element.appendChild(input);
+  input.focus();
+}
+
+function makeEditableDate(element, itemId, field, currentValue) {
+  if (element.querySelector('input')) return;
+  const input = document.createElement('input');
+  input.type = 'date';
+  input.className = 'inline-edit-input';
+  input.value = currentValue;
+
+  const save = async () => {
+    const val = input.value;
+    if (val !== currentValue) {
+      await fetch(`/api/items/${itemId}/update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [field]: val, updated_by: currentRole === 'internal' ? 'alex@quickplay.com' : 'stakeholder@acme.com', note: `Updated ${field} inline` })
+      });
+      loadData();
+    } else {
+      element.textContent = currentValue || '--';
+    }
+  };
+
+  input.addEventListener('blur', save);
+  input.addEventListener('change', () => input.blur());
+  element.innerHTML = '';
+  element.appendChild(input);
+  input.focus();
+}
+
+function makeEditableSelect(element, itemId, field, currentValue, options) {
+  if (element.querySelector('select')) return;
+  const select = document.createElement('select');
+  select.className = 'inline-status-select';
+  options.forEach(opt => {
+    const el = document.createElement('option');
+    el.value = opt;
+    el.textContent = opt;
+    if (opt === currentValue) el.selected = true;
+    select.appendChild(el);
+  });
+
+  select.addEventListener('change', async () => {
+    const val = select.value;
+    await fetch(`/api/items/${itemId}/update`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ [field]: val, updated_by: currentRole === 'internal' ? 'alex@quickplay.com' : 'stakeholder@acme.com', note: `Updated ${field} inline` })
+    });
+    loadData();
+  });
+
+  select.addEventListener('blur', () => { element.textContent = currentValue; });
+  element.innerHTML = '';
+  element.appendChild(select);
+  select.focus();
+}
+
+async function cycleNodeStatus(itemId, nodeIdx) {
+  const item = allItems.find(i => i.item_id === itemId);
+  if (!item || !item.nodes || !item.nodes[nodeIdx]) return;
+
+  const statuses = ['in progress', 'in review', 'QA', 'deploying to staging', 'closed'];
+  const current = item.nodes[nodeIdx].status || 'in progress';
+  const nextIdx = (statuses.indexOf(current) + 1) % statuses.length;
+  const nextStatus = statuses[nextIdx];
+
+  const updatedNodes = JSON.parse(JSON.stringify(item.nodes));
+  updatedNodes[nodeIdx].status = nextStatus;
+
+  await fetch(`/api/items/${itemId}/update`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nodes: updatedNodes, updated_by: currentRole === 'internal' ? 'alex@quickplay.com' : 'stakeholder@acme.com', note: `Cycled milestone node status to ${nextStatus}` })
+  });
+  loadData();
+}
+
+async function promptAddNode(itemId) {
+  const item = allItems.find(i => i.item_id === itemId);
+  if (!item) return;
+  const title = prompt("Enter milestone task title:");
+  if (!title) return;
+
+  const currentNodes = item.nodes || [];
+  const newNode = {
+    node_id: `node-${currentNodes.length + 1}`,
+    title: title,
+    status: 'in progress',
+    target_date: item.delivery_date || '',
+    assignee: item.assignee || 'unassigned'
+  };
+
+  const updatedNodes = [...currentNodes, newNode];
+  await fetch(`/api/items/${itemId}/update`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nodes: updatedNodes, updated_by: currentRole === 'internal' ? 'alex@quickplay.com' : 'stakeholder@acme.com', note: `Added milestone node: ${title}` })
+  });
+  loadData();
+}
+
+function openNewModal() { 
+  const modal = document.getElementById('modal-new');
+  const prodSelect = document.getElementById('new-product');
+  prodSelect.innerHTML = '';
+  
+  const company = directoryCompanies.find(c => c.org_id === currentOrg);
+  if (company && company.products) {
+    company.products.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.product_id;
+      opt.textContent = `${p.name} (${p.product_id})`;
+      if (currentProduct && p.product_id === currentProduct) opt.selected = true;
+      prodSelect.appendChild(opt);
+    });
+  }
+  modal.style.display = 'flex'; 
+}
+
+function openImportModal() { document.getElementById('modal-import').style.display = 'flex'; }
+function closeModals() { document.querySelectorAll('.modal-overlay').forEach(el => el.style.display = 'none'); }
+
+async function submitNewItem() {
+  const title = document.getElementById('new-title').value;
+  const product_id = document.getElementById('new-product').value;
+  const space_id = document.getElementById('new-space').value;
+  const status = document.getElementById('new-status').value;
+  const assignee = document.getElementById('new-assignee').value;
+  const delivery_date = document.getElementById('new-date').value;
+
+  const company = directoryCompanies.find(c => c.org_id === currentOrg);
+  const prodObj = company ? company.products.find(p => p.product_id === product_id) : null;
+  const product_name = prodObj ? prodObj.name : '';
+
+  await fetch('/api/items', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ 
+      title, 
+      product_id,
+      product_name,
+      space_id, 
+      status, 
+      assignee, 
+      delivery_date, 
+      org_id: currentOrg 
+    })
+  });
+  closeModals();
+  loadData();
+}
+
+async function submitImport() {
+  const raw_text = document.getElementById('import-text').value;
+  await fetch('/api/items/import', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ raw_text, org_id: currentOrg })
+  });
+  closeModals();
+  loadData();
+}
+
+async function sendChat(e) {
+  e.preventDefault();
+  const input = document.getElementById('chat-input');
+  const msg = input.value.trim();
+  if (!msg) return;
+
+  const chatBody = document.getElementById('chat-body');
+  const userBubble = document.createElement('div');
+  userBubble.style.cssText = 'background:#1060eb; color:#fff; padding:0.6rem 0.8rem; border-radius:8px; align-self:flex-end; max-width:85%; font-size:0.8rem;';
+  userBubble.textContent = msg;
+  chatBody.appendChild(userBubble);
+  input.value = '';
+
+  const resp = await fetch('/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ 
+      message: msg, 
+      role: currentRole, 
+      org_id: currentOrg,
+      user_email: currentUser,
+      product_id: currentProduct
+    })
+  });
+  const data = await resp.json();
+  const agentText = (data.parts && data.parts[0] && data.parts[0].text) || 'Done.';
+
+  const agentBubble = document.createElement('div');
+  agentBubble.style.cssText = 'background:#f1f5f9; padding:0.6rem 0.8rem; border-radius:8px; align-self:flex-start; max-width:90%; font-size:0.8rem; white-space:pre-wrap;';
+  agentBubble.textContent = agentText;
+  chatBody.appendChild(agentBubble);
+  chatBody.scrollTop = chatBody.scrollHeight;
+}
+
+function fillChat(text) {
+  const input = document.getElementById('chat-input');
+  if (input) {
+    input.value = text;
+    input.focus();
+  }
+}
+
+async function changeNodeStatus(itemId, nodeIdx, newStatus) {
+  const item = allItems.find(i => i.item_id === itemId);
+  if (!item || !item.nodes || !item.nodes[nodeIdx]) return;
+
+  const updatedNodes = JSON.parse(JSON.stringify(item.nodes));
+  updatedNodes[nodeIdx].status = newStatus;
+  if (newStatus === 'closed') {
+    updatedNodes[nodeIdx].completed_at = new Date().toISOString();
+  }
+
+  await fetch(`/api/items/${itemId}/update`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ 
+      nodes: updatedNodes, 
+      updated_by: currentRole === 'internal' ? 'alex@quickplay.com' : 'stakeholder@acme.com', 
+      note: `Changed milestone ${updatedNodes[nodeIdx].title} status to ${newStatus}` 
+    })
+  });
+  loadData();
+}
+
+function makeEditableNodeText(element, itemId, nodeIdx) {
+  if (element.querySelector('input')) return;
+  const item = allItems.find(i => i.item_id === itemId);
+  const currentValue = (item && item.nodes && item.nodes[nodeIdx]) ? (item.nodes[nodeIdx].title || '') : element.innerText.trim();
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'inline-edit-input';
+  input.style.fontSize = '0.75rem';
+  input.style.padding = '1px 4px';
+  input.style.width = '140px';
+  input.value = currentValue;
+
+  const save = async () => {
+    const val = input.value.trim();
+    if (val && val !== currentValue) {
+      const itm = allItems.find(i => i.item_id === itemId);
+      if (!itm || !itm.nodes || !itm.nodes[nodeIdx]) return;
+      const updatedNodes = JSON.parse(JSON.stringify(itm.nodes));
+      updatedNodes[nodeIdx].title = val;
+
+      await fetch(`/api/items/${itemId}/update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nodes: updatedNodes,
+          updated_by: currentRole === 'internal' ? 'alex@quickplay.com' : 'stakeholder@acme.com',
+          note: `Renamed milestone node to ${val}`
+        })
+      });
+      loadData();
+    } else {
+      loadData();
+    }
+  };
+
+  input.addEventListener('blur', save);
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') input.blur();
+    if (e.key === 'Escape') { input.removeEventListener('blur', save); loadData(); }
+  });
+
+  element.innerHTML = '';
+  element.appendChild(input);
+  input.focus();
+  input.select();
+}
+
+function makeEditableNodeDate(element, itemId, nodeIdx) {
+  if (element.querySelector('input')) return;
+  const item = allItems.find(i => i.item_id === itemId);
+  const currentValue = (item && item.nodes && item.nodes[nodeIdx]) ? (item.nodes[nodeIdx].target_date || '') : '';
+  const input = document.createElement('input');
+  input.type = 'date';
+  input.className = 'inline-edit-input';
+  input.style.fontSize = '0.7rem';
+  input.style.padding = '0 2px';
+  input.style.height = '20px';
+  input.value = currentValue;
+
+  const save = async () => {
+    const val = input.value;
+    if (val !== currentValue) {
+      const itm = allItems.find(i => i.item_id === itemId);
+      if (!itm || !itm.nodes || !itm.nodes[nodeIdx]) return;
+      const updatedNodes = JSON.parse(JSON.stringify(itm.nodes));
+      updatedNodes[nodeIdx].target_date = val;
+
+      await fetch(`/api/items/${itemId}/update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nodes: updatedNodes,
+          updated_by: currentRole === 'internal' ? 'alex@quickplay.com' : 'stakeholder@acme.com',
+          note: `Updated milestone target date to ${val}`
+        })
+      });
+      loadData();
+    } else {
+      loadData();
+    }
+  };
+
+  input.addEventListener('blur', save);
+  input.addEventListener('change', () => input.blur());
+  element.innerHTML = '';
+  element.appendChild(input);
+  input.focus();
+}
+
+function openChat() {
+  document.getElementById('chat-panel').classList.add('open');
+  document.getElementById('chat-fab').style.display = 'none';
+  document.getElementById('chat-input').focus();
+}
+
+function closeChat() {
+  document.getElementById('chat-panel').classList.remove('open');
+  document.getElementById('chat-fab').style.display = 'flex';
+}
+
+initDirectory();
+</script>
+</body>
+</html>
