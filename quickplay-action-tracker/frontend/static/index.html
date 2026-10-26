@@ -635,14 +635,14 @@
 </div>
 
 <!-- Modal: Bulk Import -->
-<div class="modal-overlay" id="modal-import">
+<div class="modal-overlay" id="modal-import" onclick="if(event.target===this)closeModals()">
   <div class="modal-box" style="max-width:720px; width:92%; max-height:90vh; display:flex; flex-direction:column;">
     <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:0.75rem; margin-bottom:1rem;">
       <div style="display:flex; align-items:center; gap:0.5rem;">
         <span class="material-symbols-outlined" style="color:var(--primary); font-size:1.4rem;">smart_toy</span>
         <h3 style="font-size:1.15rem; font-weight:800; margin:0;">Agent Import Concierge (Sheets, Docs, Files)</h3>
       </div>
-      <button onclick="closeModals()" style="background:none; border:none; font-size:1.2rem; cursor:pointer; color:var(--text-muted);">&times;</button>
+      <button type="button" id="import-close-x" onclick="closeModals()" style="background:none; border:none; font-size:1.5rem; line-height:1; cursor:pointer; color:var(--text-muted); padding:4px 8px;" aria-label="Close">&times;</button>
     </div>
 
     <!-- Step 1: Input source selection -->
@@ -716,7 +716,7 @@
 
     <!-- Modal Actions Footer -->
     <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--border); padding-top:0.75rem; margin-top:0.75rem;">
-      <button class="btn" onclick="closeModals()">Cancel</button>
+      <button type="button" id="import-close-cancel" class="btn" onclick="closeModals()">Cancel</button>
       <div style="display:flex; gap:0.5rem;">
         <button class="btn" id="btn-back-import" style="display:none;" onclick="backToImportEdit()">
           Edit Source
@@ -733,6 +733,25 @@
 </div>
 
 <script>
+// Global modal helpers defined immediately to prevent inline onclick reference errors
+function closeModals() {
+  document.querySelectorAll('.modal-overlay').forEach(el => el.style.display = 'none');
+}
+window.closeModals = closeModals;
+
+function closeImportModal() {
+  const modal = document.getElementById('modal-import');
+  if (modal) modal.style.display = 'none';
+}
+window.closeImportModal = closeImportModal;
+
+// Close modals on Escape key press
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' || e.key === 'Esc') {
+    closeModals();
+  }
+});
+
 let currentView = 'active';
 let currentRole = 'internal'; 
 let currentOrg = 'customer-acme';
@@ -1694,13 +1713,51 @@ function openNewModal() {
   modal.style.display = 'flex'; 
 }
 
+function closeModals() {
+  document.querySelectorAll('.modal-overlay').forEach(el => el.style.display = 'none');
+}
+
+function closeImportModal() {
+  const modal = document.getElementById('modal-import');
+  if (modal) modal.style.display = 'none';
+}
+
+async function submitNewItem() {
+  const title = document.getElementById('new-title').value;
+  const product_id = document.getElementById('new-product').value;
+  const space_id = document.getElementById('new-space').value;
+  const status = document.getElementById('new-status').value;
+  const assignee = document.getElementById('new-assignee').value;
+  const delivery_date = document.getElementById('new-date').value;
+
+  const company = directoryCompanies.find(c => c.org_id === currentOrg);
+  const prodObj = company ? company.products.find(p => p.product_id === product_id) : null;
+  const product_name = prodObj ? prodObj.name : '';
+
+  await fetch('/api/items', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ 
+      title, 
+      product_id,
+      product_name,
+      space_id, 
+      status, 
+      assignee, 
+      delivery_date, 
+      org_id: currentOrg 
+    })
+  });
+  closeModals();
+  loadData();
+}
+
 let currentImportTab = 'paste';
 let currentParsedImportItems = [];
 
 function switchImportTab(tab) {
   currentImportTab = tab;
   ['paste', 'file', 'url'].forEach(t => {
-    const btn = document.getElementById(`import-tab-t`);
     const view = document.getElementById(`import-view-${t}`);
     const tabBtn = document.getElementById(`import-tab-${t}`);
     if (tabBtn) tabBtn.className = t === tab ? 'btn btn-primary' : 'btn';
@@ -2056,6 +2113,24 @@ function closeChat() {
   document.getElementById('chat-panel').classList.remove('open');
   document.getElementById('chat-fab').style.display = 'flex';
 }
+
+// Ensure robust event listener binding for modal close elements
+document.addEventListener('DOMContentLoaded', () => {
+  const btnX = document.getElementById('import-close-x');
+  if (btnX) btnX.addEventListener('click', closeModals);
+
+  const btnCancel = document.getElementById('import-close-cancel');
+  if (btnCancel) btnCancel.addEventListener('click', closeModals);
+
+  const importModal = document.getElementById('modal-import');
+  if (importModal) {
+    importModal.addEventListener('click', (e) => {
+      if (e.target === importModal) {
+        closeModals();
+      }
+    });
+  }
+});
 
 initDirectory();
 </script>
