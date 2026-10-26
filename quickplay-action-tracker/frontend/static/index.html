@@ -354,9 +354,14 @@
         </button>
       </div>
     </div>
-    <select id="company-select" onchange="changeCompany(this.value)" style="background:#1c2541; color:#fff; border:1px solid #0ea5e9; padding:0.45rem; border-radius:6px; font-size:0.8rem; font-weight:600; width:100%; cursor:pointer;">
-      <!-- Populated dynamically via /api/organizations -->
-    </select>
+    <div style="display:flex; gap:0.35rem; align-items:center;">
+      <select id="company-select" onchange="changeCompany(this.value)" style="background:#1c2541; color:#fff; border:1px solid #0ea5e9; padding:0.45rem; border-radius:6px; font-size:0.8rem; font-weight:600; flex:1; cursor:pointer;">
+        <!-- Populated dynamically via /api/organizations -->
+      </select>
+      <button id="btn-delete-customer" onclick="promptDeleteCustomer()" title="Delete active Customer" style="background:#450a0a; border:1px solid #991b1b; color:#f87171; border-radius:6px; padding:0.45rem 0.55rem; cursor:pointer; display:inline-flex; align-items:center; justify-content:center;">
+        <span class="material-symbols-outlined" style="font-size:1.05rem;">delete</span>
+      </button>
+    </div>
   </div>
 
   <!-- Product Work Item Trackers (Filtered by Entitlements) -->
@@ -738,6 +743,37 @@
   </div>
 </div>
 
+<!-- Modal: Confirm Permanent Deletion (Requires typing DELETE) -->
+<div class="modal-overlay" id="modal-confirm-delete" onclick="if(event.target===this)closeModals()">
+  <div class="modal-box" style="max-width:500px; width:92%; border-top:4px solid #ef4444;">
+    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:0.75rem; margin-bottom:1rem;">
+      <div style="display:flex; align-items:center; gap:0.5rem;">
+        <span class="material-symbols-outlined" style="color:#ef4444; font-size:1.4rem;">warning</span>
+        <h3 style="font-size:1.15rem; font-weight:800; margin:0; color:#ef4444;" id="delete-modal-title">Confirm Permanent Deletion</h3>
+      </div>
+      <button type="button" onclick="closeModals()" style="background:none; border:none; font-size:1.4rem; cursor:pointer; color:var(--text-muted);">&times;</button>
+    </div>
+
+    <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:6px; padding:0.75rem 1rem; margin-bottom:1rem; font-size:0.83rem; color:#991b1b; line-height:1.4;" id="delete-modal-warning">
+      This action is permanent and cannot be undone.
+    </div>
+
+    <div class="form-group">
+      <label style="font-weight:700; font-size:0.8rem; color:#0f172a;">
+        To confirm deletion, type <span style="background:#fee2e2; color:#b91c1c; padding:2px 6px; border-radius:4px; font-family:monospace; font-weight:bold;">DELETE</span> in all caps:
+      </label>
+      <input type="text" id="delete-confirm-input" placeholder="Type DELETE to confirm" oninput="checkDeleteInput(this.value)" autocomplete="off" style="font-size:0.9rem; padding:0.55rem; font-family:monospace; border:1px solid #cbd5e1; width:100%;">
+    </div>
+
+    <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1.25rem; border-top:1px solid var(--border); padding-top:0.75rem;">
+      <button type="button" class="btn" onclick="closeModals()">Cancel</button>
+      <button type="button" class="btn" id="btn-execute-delete" onclick="executePermanentDelete()" disabled style="background:#dc2626; color:#fff; border:none; opacity:0.4; cursor:not-allowed; display:inline-flex; align-items:center; gap:4px; font-weight:700; padding:0.5rem 1rem;">
+        <span class="material-symbols-outlined" style="font-size:1.1rem;">delete_forever</span> Permanently Delete
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal: Bulk Import -->
 <div class="modal-overlay" id="modal-import" onclick="if(event.target===this)closeModals()">
   <div class="modal-box" style="max-width:720px; width:92%; max-height:90vh; display:flex; flex-direction:column;">
@@ -940,6 +976,7 @@ function updateActionButtonVisibility() {
   const btnImport = document.getElementById('btn-import');
   const btnAddCustomer = document.getElementById('btn-add-customer');
   const btnAddProduct = document.getElementById('btn-add-product');
+  const btnDeleteCustomer = document.getElementById('btn-delete-customer');
 
   const profile = directoryProfiles[currentUser] || {};
   const isInternal = profile.is_internal !== false;
@@ -949,6 +986,9 @@ function updateActionButtonVisibility() {
   }
   if (btnAddProduct) {
     btnAddProduct.style.display = isInternal ? 'inline-flex' : 'none';
+  }
+  if (btnDeleteCustomer) {
+    btnDeleteCustomer.style.display = isInternal ? 'inline-flex' : 'none';
   }
 
   if (!btnNew || !btnImport) return;
@@ -1011,8 +1051,42 @@ function renderProductTabs() {
     prodBtn.className = `nav-item ${currentProduct === prod.product_id ? 'active' : ''}`;
     prodBtn.style.padding = '0.45rem 0.65rem';
     prodBtn.style.fontSize = '0.8rem';
-    prodBtn.innerHTML = `<span class="material-symbols-outlined" style="font-size:1.05rem;">layers</span> ${prod.name}`;
-    prodBtn.title = prod.description;
+    prodBtn.style.display = 'flex';
+    prodBtn.style.alignItems = 'center';
+    prodBtn.style.justifyContent = 'space-between';
+
+    const labelSpan = document.createElement('span');
+    labelSpan.style.display = 'inline-flex';
+    labelSpan.style.alignItems = 'center';
+    labelSpan.style.gap = '0.4rem';
+    labelSpan.style.overflow = 'hidden';
+    labelSpan.style.textOverflow = 'ellipsis';
+    labelSpan.style.whiteSpace = 'nowrap';
+    labelSpan.innerHTML = `<span class="material-symbols-outlined" style="font-size:1.05rem;">layers</span> ${prod.name}`;
+    labelSpan.title = prod.description || prod.name;
+    prodBtn.appendChild(labelSpan);
+
+    if (profile.is_internal !== false) {
+      const delBtn = document.createElement('button');
+      delBtn.title = `Delete product ${prod.name}`;
+      delBtn.style.background = 'none';
+      delBtn.style.border = 'none';
+      delBtn.style.color = '#94a3b8';
+      delBtn.style.cursor = 'pointer';
+      delBtn.style.padding = '2px';
+      delBtn.style.borderRadius = '4px';
+      delBtn.style.display = 'inline-flex';
+      delBtn.style.alignItems = 'center';
+      delBtn.innerHTML = `<span class="material-symbols-outlined" style="font-size:0.95rem;">delete</span>`;
+      delBtn.onmouseover = () => { delBtn.style.color = '#ef4444'; };
+      delBtn.onmouseout = () => { delBtn.style.color = '#94a3b8'; };
+      delBtn.onclick = (e) => {
+        e.stopPropagation();
+        promptDeleteProduct(prod.product_id, prod.name);
+      };
+      prodBtn.appendChild(delBtn);
+    }
+
     prodBtn.onclick = () => { 
       currentProduct = prod.product_id; 
       renderProductTabs(); 
@@ -1971,6 +2045,140 @@ window.openNewCustomerModal = openNewCustomerModal;
 window.submitNewCustomer = submitNewCustomer;
 window.openNewProductModal = openNewProductModal;
 window.submitNewProduct = submitNewProduct;
+
+let pendingDeleteContext = null;
+
+function promptDeleteCustomer() {
+  const company = directoryCompanies.find(c => c.org_id === currentOrg);
+  const companyName = company ? company.name : currentOrg;
+  const prodCount = (company && company.products) ? company.products.length : 0;
+
+  pendingDeleteContext = {
+    type: 'customer',
+    org_id: currentOrg,
+    name: companyName
+  };
+
+  document.getElementById('delete-modal-title').textContent = `Delete Customer: ${companyName}`;
+  document.getElementById('delete-modal-warning').innerHTML = `
+    <strong>Warning:</strong> You are about to permanently delete the customer organization <strong>"${companyName}"</strong> (${currentOrg}).
+    <br><br>
+    This will permanently remove:
+    <ul style="margin:0.4rem 0 0.4rem 1.2rem; padding:0;">
+      <li>The organization profile and customer directory entry</li>
+      <li>All <strong>${prodCount}</strong> registered product platform(s)</li>
+      <li>All associated work items, milestones, and audit history</li>
+    </ul>
+  `;
+
+  const input = document.getElementById('delete-confirm-input');
+  input.value = '';
+  checkDeleteInput('');
+  document.getElementById('modal-confirm-delete').style.display = 'flex';
+  setTimeout(() => input.focus(), 50);
+}
+
+function promptDeleteProduct(productId, productName) {
+  const company = directoryCompanies.find(c => c.org_id === currentOrg);
+  const companyName = company ? company.name : currentOrg;
+
+  pendingDeleteContext = {
+    type: 'product',
+    org_id: currentOrg,
+    product_id: productId,
+    name: productName
+  };
+
+  document.getElementById('delete-modal-title').textContent = `Delete Product: ${productName}`;
+  document.getElementById('delete-modal-warning').innerHTML = `
+    <strong>Warning:</strong> You are about to permanently delete product <strong>"${productName}"</strong> (${productId}) from <strong>"${companyName}"</strong>.
+    <br><br>
+    This will permanently delete this product and all associated work items and milestone cards under it.
+  `;
+
+  const input = document.getElementById('delete-confirm-input');
+  input.value = '';
+  checkDeleteInput('');
+  document.getElementById('modal-confirm-delete').style.display = 'flex';
+  setTimeout(() => input.focus(), 50);
+}
+
+function checkDeleteInput(val) {
+  const btn = document.getElementById('btn-execute-delete');
+  if (val.trim() === 'DELETE') {
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    btn.style.cursor = 'pointer';
+  } else {
+    btn.disabled = true;
+    btn.style.opacity = '0.4';
+    btn.style.cursor = 'not-allowed';
+  }
+}
+
+async function executePermanentDelete() {
+  if (!pendingDeleteContext) return;
+  const input = document.getElementById('delete-confirm-input');
+  if (input.value.trim() !== 'DELETE') return;
+
+  const btn = document.getElementById('btn-execute-delete');
+  btn.disabled = true;
+  btn.textContent = 'Deleting...';
+
+  try {
+    if (pendingDeleteContext.type === 'customer') {
+      const res = await fetch(`/api/customers/${pendingDeleteContext.org_id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirmation: 'DELETE' })
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        alert('Failed to delete customer: ' + (data.error || 'Unknown error'));
+        return;
+      }
+      closeModals();
+      await initDirectory();
+      // Select first available company
+      if (directoryCompanies.length > 0) {
+        changeCompany(directoryCompanies[0].org_id);
+      } else {
+        currentOrg = '';
+        renderProductTabs();
+        loadData();
+      }
+    } else if (pendingDeleteContext.type === 'product') {
+      const res = await fetch(`/api/customers/${pendingDeleteContext.org_id}/products/${pendingDeleteContext.product_id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirmation: 'DELETE' })
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        alert('Failed to delete product: ' + (data.error || 'Unknown error'));
+        return;
+      }
+      closeModals();
+      await initDirectory();
+      if (currentProduct === pendingDeleteContext.product_id) {
+        currentProduct = null;
+      }
+      renderProductTabs();
+      loadData();
+    }
+  } catch (err) {
+    alert('Error during deletion: ' + err);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `<span class="material-symbols-outlined" style="font-size:1.1rem;">delete_forever</span> Permanently Delete`;
+    pendingDeleteContext = null;
+  }
+}
+
+window.promptDeleteCustomer = promptDeleteCustomer;
+window.promptDeleteProduct = promptDeleteProduct;
+window.checkDeleteInput = checkDeleteInput;
+window.executePermanentDelete = executePermanentDelete;
 
 async function submitNewItem() {
   const title = document.getElementById('new-title').value;

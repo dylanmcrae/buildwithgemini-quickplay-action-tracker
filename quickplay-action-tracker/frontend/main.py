@@ -214,6 +214,80 @@ async def create_product_under_customer(org_id: str, req: Request):
 
     return {"success": True, "product": new_prod, "org_id": org_id}
 
+@app.delete("/api/customers/{org_id}")
+async def delete_customer(org_id: str, req: Request):
+    """Deletes an entire customer organization and its associated products and items (internal operators only)."""
+    sync_companies_registry()
+    body = await req.json()
+    confirmation = (body.get("confirmation") or "").strip()
+    if confirmation != "DELETE":
+        return JSONResponse(status_code=400, content={"error": "Confirmation phrase must be 'DELETE'."})
+
+    if org_id not in COMPANIES_REGISTRY:
+        return JSONResponse(status_code=404, content={"error": f"Customer '{org_id}' not found."})
+
+    # 1. Remove from Firestore organizations collection
+    try:
+        db.collection("organizations").document(org_id).delete()
+    except Exception as e:
+        print(f"Error removing customer doc from Firestore: {e}")
+
+    # 2. Delete all action items under this customer in Firestore
+    try:
+        docs = db.collection(COLLECTION_NAME).where(field_path="org_id", op_string="==", value=org_id).stream()
+        for d in docs:
+            d.reference.delete()
+    except Exception as e:
+        print(f"Error deleting action items for customer {org_id}: {e}")
+
+    # 3. Remove from in-memory registry
+    del COMPANIES_REGISTRY[org_id]
+
+    # 4. Remove from internal users' allowed_orgs list
+    for profile in USER_PROFILES.values():
+        if org_id in profile.get("allowed_orgs", []):
+            profile["allowed_orgs"].remove(org_id)
+
+    return {"success": True, "deleted_org_id": org_id}
+
+@app.delete("/api/customers/{org_id}/products/{product_id}")
+async def delete_product(org_id: str, product_id: str, req: Request):
+    """Deletes a product under a customer organization and its associated items (internal operators only)."""
+    sync_companies_registry()
+    body = await req.json()
+    confirmation = (body.get("confirmation") or "").strip()
+    if confirmation != "DELETE":
+        return JSONResponse(status_code=400, content={"error": "Confirmation phrase must be 'DELETE'."})
+
+    company = COMPANIES_REGISTRY.get(org_id)
+    if not company:
+        return JSONResponse(status_code=404, content={"error": f"Customer '{org_id}' not found."})
+
+    products = company.get("products", [])
+    updated_products = [p for p in products if p.get("product_id") != product_id]
+
+    if len(updated_products) == len(products):
+        return JSONResponse(status_code=404, content={"error": f"Product '{product_id}' not found under {org_id}."})
+
+    company["products"] = updated_products
+
+    # 1. Update Firestore organization document
+    try:
+        db.collection("organizations").document(org_id).set(company, merge=True)
+    except Exception as e:
+        print(f"Error updating customer doc in Firestore after product delete: {e}")
+
+    # 2. Delete all action items associated with this product
+    try:
+        docs = db.collection(COLLECTION_NAME).where(field_path="org_id", op_string="==", value=org_id).where(field_path="product_id", op_string="==", value=product_id).stream()
+        for d in docs:
+            d.reference.delete()
+    except Exception as e:
+        print(f"Error deleting action items for product {product_id}: {e}")
+
+    return {"success": True, "deleted_product_id": product_id, "org_id": org_id}
+
+
 
 @app.get("/api/items")
 async def get_items(org_id: str = "customer-acme", product_id: Optional[str] = None, include_closed: bool = True):
