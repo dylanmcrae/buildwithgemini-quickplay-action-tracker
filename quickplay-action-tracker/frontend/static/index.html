@@ -901,6 +901,7 @@ let currentUser = 'alex@quickplay.com';
 let directoryCompanies = [];
 let directoryProfiles = {};
 let allItems = [];
+let expandedMilestoneItems = new Set();
 
 async function initDirectory() {
   try {
@@ -1246,7 +1247,15 @@ function renderView() {
     const canEdit = currentRole === 'internal' || currentRole === 'customer_edit';
 
     // Milestone nodes with direct in-line editing (title & date) and status selectors
-    const nodesHtml = (item.nodes || []).map((n, nIdx) => {
+    // Show only the 3 most recent milestones by default, with toggle to expand all
+    const allNodes = item.nodes || [];
+    const isExpanded = expandedMilestoneItems.has(item.item_id);
+    const visibleNodes = (allNodes.length > 3 && !isExpanded) 
+      ? allNodes.slice(allNodes.length - 3) 
+      : allNodes;
+    const hiddenCount = allNodes.length - visibleNodes.length;
+
+    const renderSingleNode = (n, nIdx) => {
       let nBg = '#e0f2fe', nColor = '#0369a1';
       if (n.status === 'closed') { nBg = '#dcfce7'; nColor = '#15803d'; }
       else if (n.status === 'QA') { nBg = '#fef3c7'; nColor = '#b45309'; }
@@ -1285,7 +1294,43 @@ function renderView() {
           `}
         </div>
       `;
-    }).join('') || '<span style="color:#94a3b8; font-size:0.78rem;">No milestones</span>';
+    };
+
+    let nodesHtml = '';
+    if (allNodes.length === 0) {
+      nodesHtml = '<span style="color:#94a3b8; font-size:0.78rem;">No milestones</span>';
+    } else {
+      // Calculate true index in allNodes array so editing maps correctly
+      const offset = (allNodes.length > 3 && !isExpanded) ? (allNodes.length - 3) : 0;
+      nodesHtml = visibleNodes.map((n, idx) => renderSingleNode(n, offset + idx)).join('');
+
+      // Add expand/collapse trigger if more than 3 milestones exist
+      if (allNodes.length > 3) {
+        if (!isExpanded) {
+          nodesHtml = `
+            <div style="margin-bottom:0.35rem;">
+              <button type="button" class="btn" onclick="toggleMilestonesExpand('${item.item_id}')" 
+                      style="font-size:0.7rem; padding:2px 6px; width:100%; display:flex; align-items:center; justify-content:center; gap:4px; background:#f1f5f9; color:#0284c7; border:1px dashed #bae6fd; font-weight:700; cursor:pointer;">
+                <span class="material-symbols-outlined" style="font-size:0.85rem;">unfold_more</span>
+                Show all ${allNodes.length} milestones (+${hiddenCount} earlier)
+              </button>
+            </div>
+            ${nodesHtml}
+          `;
+        } else {
+          nodesHtml = `
+            ${nodesHtml}
+            <div style="margin-top:0.25rem; margin-bottom:0.25rem;">
+              <button type="button" class="btn" onclick="toggleMilestonesExpand('${item.item_id}')" 
+                      style="font-size:0.7rem; padding:2px 6px; width:100%; display:flex; align-items:center; justify-content:center; gap:4px; background:#f8fafc; color:#64748b; border:1px solid #e2e8f0; font-weight:600; cursor:pointer;">
+                <span class="material-symbols-outlined" style="font-size:0.85rem;">unfold_less</span>
+                Collapse to recent 3 milestones
+              </button>
+            </div>
+          `;
+        }
+      }
+    }
 
     // Reference links (Jira, Docs, Sheets) visible directly in the table
     const refLinksHtml = (item.attachments || []).map(att => {
@@ -2573,6 +2618,16 @@ function closeChat() {
   document.getElementById('chat-panel').classList.remove('open');
   document.getElementById('chat-fab').style.display = 'flex';
 }
+
+function toggleMilestonesExpand(itemId) {
+  if (expandedMilestoneItems.has(itemId)) {
+    expandedMilestoneItems.delete(itemId);
+  } else {
+    expandedMilestoneItems.add(itemId);
+  }
+  renderTable();
+}
+window.toggleMilestonesExpand = toggleMilestonesExpand;
 
 // Ensure robust event listener binding for modal close elements
 document.addEventListener('DOMContentLoaded', () => {
